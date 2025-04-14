@@ -45,7 +45,7 @@ class RouterController extends Controller
 
     public function create()
     {
-        return Inertia::render('Router/Create');
+        return Inertia::render('Router/Partials/Create');
     }
 
     protected function validateRouterConnection($ip, $username, $password, $port)
@@ -117,7 +117,7 @@ class RouterController extends Controller
     public function show($id)
     {
         $router = Router::findOrFail($id);
-        return Inertia::render('Router/Show', [
+        return Inertia::render('Router/Partials/Show', [
             'router' => $router
         ]);
     }
@@ -125,7 +125,7 @@ class RouterController extends Controller
     public function edit($id)
     {
         $router = Router::findOrFail($id);
-        return Inertia::render('Router/Edit', [
+        return Inertia::render('Router/Partials/Edit', [
             'router' => $router
         ]);
     }
@@ -191,11 +191,9 @@ class RouterController extends Controller
                 'total_memory' => $response['total-memory'] ?? '0',
             ];
 
-            Log::info('Router stats fetched for overview', $data);
-            return Inertia::render('Router/Overview', ['router' => $data]);
+            return Inertia::render('Router/Partials/Overview', ['router' => $data]);
         } catch (Exception $e) {
-            Log::error('Overview error', ['error' => $e->getMessage()]);
-            return Inertia::render('Router/Overview', [
+            return Inertia::render('Router/Partials/Overview', [
                 'error' => 'Failed to connect to MikroTik: ' . $e->getMessage()
             ]);
         }

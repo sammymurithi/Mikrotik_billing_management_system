@@ -16,6 +16,7 @@ defineProps({
 const form = useForm({
   username: '',
   password: '',
+  password_confirmation: '',
   profile_name: '', // Changed to profile_name to match MikroTik's profile field
   router_id: '',
   mac_address: '',
@@ -68,6 +69,19 @@ const submit = () => {
                   required
                 />
                 <div v-if="form.errors.password" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.password }}</div>
+              </div>
+
+              <!-- Password Confirmation -->
+              <div>
+                <label for="password_confirmation" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</label>
+                <input
+                  v-model="form.password_confirmation"
+                  type="password"
+                  id="password_confirmation"
+                  class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                />
+                <div v-if="form.errors.password_confirmation" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.password_confirmation }}</div>
               </div>
 
               <!-- Profile -->

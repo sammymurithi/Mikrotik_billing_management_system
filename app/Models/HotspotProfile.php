@@ -3,19 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HotspotProfile extends Model
 {
     protected $fillable = [
+        'mikrotik_id',
+        'router_id',
         'name',
         'rate_limit',
         'shared_users',
-        'comment'
+        'mac_cookie_timeout',
+        'keepalive_timeout',
     ];
 
-    public function users(): HasMany
+    public function router()
     {
-        return $this->hasMany(HotspotUser::class);
+        return $this->belongsTo(Router::class);
     }
 }

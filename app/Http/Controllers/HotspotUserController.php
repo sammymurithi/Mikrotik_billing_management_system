@@ -17,7 +17,7 @@ class HotspotUserController extends Controller
         $routers = Router::all();
     
         if ($routers->isEmpty()) {
-            return Inertia::render('Hotspot/User/Index', [
+            return Inertia::render('Hotspot/User/Partials/Index', [
                 'hotspotUsers' => [],
             ]);
         }
@@ -139,7 +139,7 @@ class HotspotUserController extends Controller
             })
             ->toArray();
     
-        return Inertia::render('Hotspot/User/Index', [
+        return Inertia::render('Hotspot/User/Partials/Index', [
             'hotspotUsers' => $hotspotUsers,
         ]);
     }
@@ -166,40 +166,7 @@ class HotspotUserController extends Controller
 
     public function create()
     {
-        $routers = Router::all();
-        $profiles = [];
-
-        if ($routers->count() === 1) {
-            $router = $routers->first();
-            try {
-                $client = new Client([
-                    'host' => $router->ip_address,
-                    'user' => $router->username,
-                    'pass' => $router->password,
-                    'port' => $router->port ?? 8728,
-                ]);
-
-                $query = new Query('/ip/hotspot/user/profile/print');
-                $mikrotikProfiles = $client->query($query)->read();
-
-                foreach ($mikrotikProfiles as $profile) {
-                    $profiles[] = [
-                        'name' => $profile['name'],
-                        'rate_limit' => $profile['rate-limit'] ?? null,
-                        'shared_users' => $profile['shared-users'] ?? null,
-                    ];
-                }
-
-                \Log::info("Fetched " . count($profiles) . " profiles from MikroTik router {$router->name}");
-            } catch (\Exception $e) {
-                \Log::error("Failed to fetch profiles from router {$router->name}: " . $e->getMessage());
-            }
-        }
-
-        return Inertia::render('Hotspot/User/Create', [
-            'profiles' => $profiles,
-            'routers' => $routers,
-        ]);
+        return Inertia::render('Hotspot/User/Partials/Create');
     }
 
 
@@ -328,7 +295,7 @@ class HotspotUserController extends Controller
             ]);
         }
         
-        return Inertia::render('Hotspot/User/Show', [
+        return Inertia::render('Hotspot/User/Partials/Show', [
             'hotspotUser' => [
                 'id' => $hotspotUser->id,
                 'username' => $hotspotUser->username,
@@ -381,20 +348,10 @@ class HotspotUserController extends Controller
             \Log::error("Failed to fetch profiles from router {$router->name}: " . $e->getMessage());
         }
 
-        return Inertia::render('Hotspot/User/Edit', [
-            'hotspotUser' => [
-                'id' => $hotspotUser->id,
-                'username' => $hotspotUser->username,
-                'password' => $hotspotUser->password,
-                'profile_name' => $hotspotUser->profile_name,
-                'router_id' => $hotspotUser->router_id,
-                'mac_address' => $hotspotUser->mac_address,
-                'disabled' => $hotspotUser->disabled,
-                'status' => $hotspotUser->status,
-                'expires_at' => $hotspotUser->expires_at,
-            ],
-            'profiles' => $profiles,
+        return Inertia::render('Hotspot/User/Partials/Edit', [
+            'hotspotUser' => $hotspotUser,
             'routers' => $routers,
+            'profiles' => $profiles
         ]);
     }
 
@@ -662,7 +619,7 @@ class HotspotUserController extends Controller
                 ->withErrors(['error' => 'Failed to fetch user sessions: ' . $e->getMessage()]);
         }
 
-        return Inertia::render('Hotspot/User/Sessions', [
+        return Inertia::render('Hotspot/User/Partials/Sessions', [
             'hotspotUser' => [
                 'id' => $hotspotUser->id,
                 'username' => $hotspotUser->username,

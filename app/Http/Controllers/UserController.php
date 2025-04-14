@@ -33,7 +33,7 @@ class UserController extends Controller
      */
     public function create()
     {
-        return Inertia::render('User/Create');
+        return Inertia::render('User/Partials/Create');
     }
 
     /**
@@ -48,7 +48,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|string|in:admin,staff',
+            'role' => 'required|string|in:user,admin',
         ]);
 
         $user = User::create([
@@ -73,7 +73,7 @@ class UserController extends Controller
     {
         $user = User::with('roles')->findOrFail($id);
         
-        return Inertia::render('User/Edit', [
+        return Inertia::render('User/Partials/Edit', [
             'user' => $user
         ]);
     }
@@ -92,8 +92,8 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,'.$id,
-            'password' => 'nullable|string|min:8|confirmed',
-            'role' => 'required|string|in:admin,staff',
+            'password' => 'nullable|string|min:8',
+            'role' => 'required|string|in:user,admin',
         ]);
 
         $user->update([
@@ -124,5 +124,14 @@ class UserController extends Controller
 
         return redirect()->route('users.index')
             ->with('success', 'User deleted successfully.');
+    }
+
+    public function show($id)
+    {
+        $user = User::with('roles')->findOrFail($id);
+        
+        return Inertia::render('User/Partials/Show', [
+            'user' => $user
+        ]);
     }
 }
