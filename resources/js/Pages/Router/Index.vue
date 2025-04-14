@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { ref, onMounted } from 'vue';
@@ -15,7 +15,16 @@ const routerStatuses = ref({});
 
 const deleteRouter = (routerId) => {
     if (confirm('Are you sure you want to delete this router?')) {
-        router.delete(route('routers.destroy', routerId));
+        router.delete(route('routers.destroy', routerId), {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Remove the router from the local state
+                const index = props.routers.findIndex(r => r.id === routerId);
+                if (index !== -1) {
+                    props.routers.splice(index, 1);
+                }
+            }
+        });
     }
 };
 
