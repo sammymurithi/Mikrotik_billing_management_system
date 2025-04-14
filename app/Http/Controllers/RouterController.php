@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Router;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use RouterOS\Client;
 use RouterOS\Query;
@@ -35,91 +37,144 @@ class RouterController extends Controller
 
     public function index()
     {
+        $routers = Router::all();
+        return Inertia::render('Router/Index', [
+            'routers' => $routers
+        ]);
+    }
+
+    public function create()
+    {
+        return Inertia::render('Router/Create');
+    }
+
+    protected function validateRouterConnection($ip, $username, $password, $port)
+    {
         try {
-            $client = $this->getMikroTikClient();
-
-            // Fetch system resources
-            $resourceQuery = new Query('/system/resource/print');
-            $resource = $client->query($resourceQuery)->read()[0];
-
-            // Fetch system identity (router name)
-            $identityQuery = new Query('/system/identity/print');
-            $identity = $client->query($identityQuery)->read()[0];
-
-            // Fetch package update status
-            $updateQuery = new Query('/system/package/update/check-for-updates');
-            $client->query($updateQuery)->read();
-            $updateStatusQuery = new Query('/system/package/update/print');
-            $updateStatus = $client->query($updateStatusQuery)->read()[0];
-
-            // Fetch interface stats (for main interface, e.g., ether1)
-            $interfaceQuery = new Query('/interface/print');
-            $interfaces = $client->query($interfaceQuery)->read();
-            $ether1 = collect($interfaces)->firstWhere('name', 'ether1') ?? [];
-
-            // Fetch hotspot active users
-            $hotspotActiveQuery = new Query('/ip/hotspot/active/print');
-            $hotspotActiveUsers = $client->query($hotspotActiveQuery)->read();
-
-            // Fetch hotspot users (total)
-            $hotspotUsersQuery = new Query('/ip/hotspot/user/print');
-            $hotspotUsers = $client->query($hotspotUsersQuery)->read();
-
-            // Calculate traffic rates (bytes per second) using caching
-            $interfaceKey = 'interface_ether1_stats';
-            $previousStats = Cache::get($interfaceKey, ['tx-byte' => 0, 'rx-byte' => 0, 'timestamp' => now()->timestamp]);
-            $currentTxBytes = (int) ($ether1['tx-byte'] ?? 0);
-            $currentRxBytes = (int) ($ether1['rx-byte'] ?? 0);
-            $timeDiff = now()->timestamp - $previousStats['timestamp'];
-            $txRate = $timeDiff > 0 ? (($currentTxBytes - $previousStats['tx-byte']) * 8 / $timeDiff) : 0; // bits per second
-            $rxRate = $timeDiff > 0 ? (($currentRxBytes - $previousStats['rx-byte']) * 8 / $timeDiff) : 0; // bits per second
-            Cache::put($interfaceKey, [
-                'tx-byte' => $currentTxBytes,
-                'rx-byte' => $currentRxBytes,
-                'timestamp' => now()->timestamp
-            ], now()->addMinutes(5));
-
-            // Simulate traffic history for charts (last 24 hours, 1-hour intervals)
-            $trafficHistory = $this->generateTrafficHistory($txRate, $rxRate);
-
-            // Calculate downtime (approximation based on last reboot)
-            $uptimeStr = $resource['uptime'] ?? '0s';
-            $uptimeSeconds = $this->parseUptimeToSeconds($uptimeStr);
-            $lastReboot = now()->subSeconds($uptimeSeconds);
-            $downtime = $uptimeSeconds > 0 ? $lastReboot->diffForHumans() : 'Unknown';
-
-            $data = [
-                'router_name' => $identity['name'] ?? 'MikroTik',
-                'uptime' => $uptimeStr,
-                'downtime' => $downtime,
-                'version' => $resource['version'] ?? 'N/A',
-                'board_name' => $resource['board-name'] ?? 'N/A',
-                'cpu' => $resource['cpu'] ?? 'N/A',
-                'cpu_load' => $resource['cpu-load'] ?? '0',
-                'cpu_frequency' => $resource['cpu-frequency'] ?? '0',
-                'free_memory' => $resource['free-memory'] ?? '0',
-                'total_memory' => $resource['total-memory'] ?? '0',
-                'free_hdd_space' => $resource['free-hdd-space'] ?? '0',
-                'total_hdd_space' => $resource['total-hdd-space'] ?? '0',
-                'update_available' => ($updateStatus['status'] ?? '') === 'New version is available',
-                'latest_version' => $updateStatus['latest-version'] ?? 'N/A',
-                'tx_rate' => $txRate,
-                'rx_rate' => $rxRate,
-                'tx_bytes' => $currentTxBytes,
-                'rx_bytes' => $currentRxBytes,
-                'active_hotspot_users' => count($hotspotActiveUsers),
-                'total_hotspot_users' => count($hotspotUsers),
-                'traffic_history' => $trafficHistory,
-            ];
-
-            Log::info('Router stats fetched for dashboard', $data);
-            return Inertia::render('Dashboard', ['router' => $data]);
-        } catch (Exception $e) {
-            Log::error('Dashboard error', ['error' => $e->getMessage()]);
-            return Inertia::render('Dashboard', [
-                'error' => 'Failed to connect to MikroTik: ' . $e->getMessage()
+            // Ensure port is an integer
+            $port = (int) $port;
+            
+            // Create client with timeout
+            $client = new Client([
+                'host' => $ip,
+                'user' => $username,
+                'pass' => $password,
+                'port' => $port,
+                'timeout' => 5, // 5 seconds timeout
             ]);
+
+            // Test connection by getting router identity
+            $query = new Query('/system/identity/print');
+            $response = $client->query($query)->read();
+
+            if (empty($response)) {
+                throw new \Exception('Could not retrieve router identity');
+            }
+
+            return [
+                'success' => true,
+                'identity' => $response[0]['name'] ?? 'Unknown'
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'ip_address' => 'required|string|ip',
+            'username' => 'required|string|max:255',
+            'password' => 'required|string|max:255',
+            'port' => 'required|integer|min:1|max:65535',
+        ]);
+
+        // Test connection to router
+        $connectionTest = $this->validateRouterConnection(
+            $validated['ip_address'],
+            $validated['username'],
+            $validated['password'],
+            $validated['port']
+        );
+
+        if (!$connectionTest['success']) {
+            return back()->withErrors([
+                'error' => 'Failed to connect to router: ' . $connectionTest['error']
+            ])->withInput();
+        }
+
+        // Create router in database
+        $router = Router::create($validated);
+
+        return redirect()->route('routers.index')
+            ->with('success', 'Router created successfully. Connected to: ' . $connectionTest['identity']);
+    }
+
+    public function show($id)
+    {
+        $router = Router::findOrFail($id);
+        return Inertia::render('Router/Show', [
+            'router' => $router
+        ]);
+    }
+
+    public function edit($id)
+    {
+        $router = Router::findOrFail($id);
+        return Inertia::render('Router/Edit', [
+            'router' => $router
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $router = Router::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'ip_address' => 'required|string|ip',
+            'username' => 'required|string|max:255',
+            'password' => 'nullable|string|max:255',
+            'port' => 'required|integer|min:1|max:65535',
+        ]);
+
+        // If password is empty, use the existing password
+        if (empty($validated['password'])) {
+            $validated['password'] = $router->password;
+        }
+
+        // Test connection to router
+        $connectionTest = $this->validateRouterConnection(
+            $validated['ip_address'],
+            $validated['username'],
+            $validated['password'],
+            $validated['port']
+        );
+
+        if (!$connectionTest['success']) {
+            return back()->withErrors([
+                'error' => 'Failed to connect to router: ' . $connectionTest['error']
+            ])->withInput();
+        }
+
+        // Update router in database
+        $router->update($validated);
+
+        return redirect()->route('routers.index')
+            ->with('success', 'Router updated successfully. Connected to: ' . $connectionTest['identity']);
+    }
+
+    public function destroy($id)
+    {
+        $router = Router::findOrFail($id);
+        $router->delete();
+
+        return redirect()->route('routers.index')
+            ->with('success', 'Router deleted successfully.');
     }
 
     public function overview()
@@ -179,5 +234,24 @@ class RouterController extends Controller
         }
 
         return $history;
+    }
+
+    public function checkConnection($id)
+    {
+        $router = Router::findOrFail($id);
+        
+        $connectionTest = $this->validateRouterConnection(
+            $router->ip_address,
+            $router->username,
+            $router->password,
+            $router->port
+        );
+
+        return response()->json([
+            'connected' => $connectionTest['success'],
+            'message' => $connectionTest['success'] 
+                ? 'Connected to: ' . $connectionTest['identity']
+                : 'Failed to connect: ' . $connectionTest['error']
+        ]);
     }
 }

@@ -12,10 +12,11 @@ class HotspotUser extends Model
     use HasFactory;
 
     protected $fillable = [
+        'mikrotik_id',
         'username',
         'password',
         'mac_address',
-        'profile',
+        'profile_name',
         'router_id',
         'disabled',
         'expires_at',

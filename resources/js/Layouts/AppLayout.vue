@@ -54,6 +54,9 @@ const logout = () => {
                                 <NavLink :href="route('users.index')" :active="route().current('users.*')">
                                     System Users
                                 </NavLink>
+                                <NavLink :href="route('routers.index')" :active="route().current('routers.*')">
+                                    Routers
+                                </NavLink>
                                 <NavLink :href="route('hotspot.users.index')" :active="route().current('hotspot.users.*')">
                                     Hotspot Users
                                 </NavLink>
@@ -144,6 +147,9 @@ const logout = () => {
                         </ResponsiveNavLink>
                         <ResponsiveNavLink :href="route('users.index')" :active="route().current('users.*')">
                             System Users
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink :href="route('routers.index')" :active="route().current('routers.*')">
+                            Routers
                         </ResponsiveNavLink>
                         <ResponsiveNavLink :href="route('hotspot.users.index')" :active="route().current('hotspot.users.*')">
                             Hotspot Users

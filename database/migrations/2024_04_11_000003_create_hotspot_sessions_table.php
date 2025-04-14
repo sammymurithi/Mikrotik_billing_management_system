@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('hotspot_sessions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('hotspot_user_id')->constrained('hotspot_users')->onDelete('cascade');
+            $table->string('session_id')->nullable();
             $table->string('mac_address');
             $table->string('ip_address');
             $table->string('uptime');

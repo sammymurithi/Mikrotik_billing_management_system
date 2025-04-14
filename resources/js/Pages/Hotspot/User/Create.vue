@@ -1,173 +1,152 @@
+<script setup>
+import { Head, useForm } from '@inertiajs/vue3';
+import AppLayout from '@/Layouts/AppLayout.vue';
+
+defineProps({
+  profiles: {
+    type: Array,
+    default: () => [],
+  },
+  routers: {
+    type: Array,
+    default: () => [],
+  },
+});
+
+const form = useForm({
+  username: '',
+  password: '',
+  profile_name: '', // Changed to profile_name to match MikroTik's profile field
+  router_id: '',
+  mac_address: '',
+  expires_at: '',
+});
+
+const submit = () => {
+  form.post(route('hotspot.users.store'), {
+    onSuccess: () => form.reset(),
+  });
+};
+</script>
+
 <template>
-    <AppLayout title="Create Hotspot User">
-      <template #header>
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-          Create Hotspot User
-        </h2>
-      </template>
-  
-      <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-          <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg p-6">
-            <div class="flex justify-between items-center mb-6">
-              <h3 class="text-lg font-medium text-gray-900">Create New Hotspot User</h3>
-              <Link
-                :href="route('hotspot.users.index')"
-                class="inline-flex items-center px-4 py-2 bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-gray-800 uppercase tracking-widest hover:bg-gray-300 active:bg-gray-400 focus:outline-none focus:border-gray-900 focus:ring focus:ring-gray-300 disabled:opacity-25 transition"
-              >
-                Back to Users
-              </Link>
-            </div>
-            
-            <form @submit.prevent="submit">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <InputLabel for="username" value="Username" />
-                  <TextInput
-                    id="username"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.username"
-                    required
-                    autofocus
-                  />
-                  <InputError class="mt-2" :message="form.errors.username" />
-                </div>
-  
-                <div>
-                  <InputLabel for="password" value="Password" />
-                  <TextInput
-                    id="password"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                  />
-                  <InputError class="mt-2" :message="form.errors.password" />
-                  <button type="button" @click="generatePassword" class="text-sm text-blue-600 hover:text-blue-800 mt-1">
-                    Generate Password
-                  </button>
-                </div>
-  
-                <div>
-                  <InputLabel for="profile_id" value="Profile" />
-                  <SelectInput
-                    id="profile_id"
-                    class="mt-1 block w-full"
-                    v-model="form.profile_id"
-                    required
-                  >
-                  <option value="">Select a profile</option>
-                    <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
-                      {{ profile.name }}
-                    </option>
-                  </SelectInput>
-                  <InputError class="mt-2" :message="form.errors.profile_id" />
-                </div>
+  <Head title="Create Hotspot User" />
 
-                <div>
-                  <InputLabel for="mac_address" value="MAC Address (optional)" />
-                  <TextInput
-                    id="mac_address"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.mac_address"
-                    placeholder="AA:BB:CC:DD:EE:FF"
-                  />
-                  <InputError class="mt-2" :message="form.errors.mac_address" />
-                </div>
+  <AppLayout>
+    <template #header>
+      <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+        Create Hotspot User
+      </h2>
+    </template>
 
-                <div>
-                  <InputLabel for="expires_at" value="Expiration Date (optional)" />
-                  <TextInput
-                    id="expires_at"
-                    type="date"
-                    class="mt-1 block w-full"
-                    v-model="form.expires_at"
-                  />
-                  <InputError class="mt-2" :message="form.errors.expires_at" />
-                </div>
-
-                <div>
-                  <div class="flex items-center mt-4">
-                    <Checkbox id="is_active" v-model:checked="form.is_active" />
-                    <InputLabel for="is_active" value="Active" class="ml-2" />
-                  </div>
-                  <InputError class="mt-2" :message="form.errors.is_active" />
-                </div>
+    <div class="py-12">
+      <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+          <div class="p-6 text-gray-900 dark:text-gray-100">
+            <form @submit.prevent="submit" class="space-y-6">
+              <!-- Username -->
+              <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                <input
+                  v-model="form.username"
+                  type="text"
+                  id="username"
+                  class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                />
+                <div v-if="form.errors.username" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.username }}</div>
               </div>
 
-              <div class="flex items-center justify-end mt-8">
-                <PrimaryButton class="ml-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+              <!-- Password -->
+              <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                <input
+                  v-model="form.password"
+                  type="password"
+                  id="password"
+                  class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                />
+                <div v-if="form.errors.password" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.password }}</div>
+              </div>
+
+              <!-- Profile -->
+              <div>
+                <label for="profile_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Profile</label>
+                <select
+                  v-model="form.profile_name"
+                  id="profile_name"
+                  class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="">Select Profile</option>
+                  <option v-for="profile in profiles" :key="profile.name" :value="profile.name">
+                    {{ profile.name }} 
+                    <span v-if="profile.rate_limit" class="text-xs text-gray-500 dark:text-gray-400">
+                      ({{ profile.rate_limit }})
+                    </span>
+                    <span v-if="profile.shared_users" class="text-xs text-gray-500 dark:text-gray-400">
+                      - {{ profile.shared_users }} users
+                    </span>
+                  </option>
+                </select>
+                <div v-if="form.errors.profile_name" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.profile_name }}</div>
+              </div>
+
+              <!-- Router -->
+              <div>
+                <label for="router_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Router</label>
+                <select
+                  v-model="form.router_id"
+                  id="router_id"
+                  class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="">Select Router</option>
+                  <option v-for="router in routers" :key="router.id" :value="router.id">{{ router.name }}</option>
+                </select>
+                <div v-if="form.errors.router_id" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.router_id }}</div>
+              </div>
+
+              <!-- MAC Address -->
+              <div>
+                <label for="mac_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300">MAC Address (Optional)</label>
+                <input
+                  v-model="form.mac_address"
+                  type="text"
+                  id="mac_address"
+                  class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  placeholder="e.g., 00:11:22:33:44:55"
+                />
+                <div v-if="form.errors.mac_address" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.mac_address }}</div>
+              </div>
+
+              <!-- Expires At -->
+              <div>
+                <label for="expires_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Expires At (Optional)</label>
+                <input
+                  v-model="form.expires_at"
+                  type="datetime-local"
+                  id="expires_at"
+                  class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+                <div v-if="form.errors.expires_at" class="text-red-600 dark:text-red-400 text-sm mt-1">{{ form.errors.expires_at }}</div>
+              </div>
+
+              <!-- Submit Button -->
+              <div>
+                <button
+                  type="submit"
+                  class="inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-white dark:text-gray-800 uppercase tracking-widest hover:bg-gray-700 dark:hover:bg-white focus:bg-gray-700 dark:focus:bg-white active:bg-gray-900 dark:active:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
+                  :disabled="form.processing"
+                >
                   Create User
-                </PrimaryButton>
+                </button>
               </div>
             </form>
           </div>
         </div>
       </div>
-    </AppLayout>
-  </template>
-  
-  <script>
-  import { useForm } from '@inertiajs/inertia-vue3';
-  import { Link } from '@inertiajs/inertia-vue3';
-  import AppLayout from '@/Layouts/AppLayout.vue';
-  import InputLabel from '@/Components/InputLabel.vue';
-  import TextInput from '@/Components/TextInput.vue';
-  import InputError from '@/Components/InputError.vue';
-  import SelectInput from '@/Components/SelectInput.vue';
-  import Checkbox from '@/Components/Checkbox.vue';
-  import PrimaryButton from '@/Components/PrimaryButton.vue';
-  
-  export default {
-    components: {
-      AppLayout,
-      InputLabel,
-      TextInput,
-      InputError,
-      SelectInput,
-      Checkbox, 
-      PrimaryButton,
-      Link
-    },
-    
-    props: {
-      profiles: Array,
-    },
-    
-    setup(props) {
-      const form = useForm({
-        username: '',
-        password: '',
-        profile_id: '',
-        mac_address: '',
-        expires_at: '',
-        is_active: true,
-      });
-      
-      const generatePassword = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let result = '';
-        for (let i = 0; i < 8; i++) {
-          result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        form.password = result;
-      };
-      
-      const submit = () => {
-        form.post(route('hotspot.users.store'), {
-          onSuccess: () => {
-            form.reset();
-          },
-        });
-      };
-      
-      return {
-        form,
-        generatePassword,
-        submit,
-      };
-    },
-  };
-  </script>
+    </div>
+  </AppLayout>
+</template>

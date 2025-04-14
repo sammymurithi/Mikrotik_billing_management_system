@@ -27,6 +27,10 @@ Route::middleware([
     // System Users
     Route::resource('users', UserController::class);
 
+    // Routers
+    Route::resource('routers', RouterController::class);
+    Route::get('/routers/{id}/check-connection', [RouterController::class, 'checkConnection'])->name('routers.check-connection');
+
     // Hotspot Users
     Route::get('/hotspot/users', [HotspotUserController::class, 'index'])->name('hotspot.users.index');
     Route::get('/hotspot/users/create', [HotspotUserController::class, 'create'])->name('hotspot.users.create');

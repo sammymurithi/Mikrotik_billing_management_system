@@ -7,8 +7,20 @@ defineProps({
     hotspotUser: {
         type: Object,
         required: true
+    },
+    activeSessions: {
+        type: Array,
+        default: () => []
     }
 });
+
+const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 </script>
 
 <template>
@@ -39,54 +51,81 @@ defineProps({
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <!-- User Information Card -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                    <div class="p-6 text-gray-900 dark:text-gray-100">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">User Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.username }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Profile</label>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.profile_name }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                                <p class="mt-1 text-sm" :class="hotspotUser.disabled ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'">
+                                    {{ hotspotUser.disabled ? 'Disabled' : 'Enabled' }}
+                                </p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">MAC Address</label>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.mac_address || '-' }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Router</label>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.router_name }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Expires At</label>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.expires_at || 'Never' }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Created At</label>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.created_at }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Updated</label>
+                                <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.updated_at }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Sessions Card -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- User Information -->
-                            <div class="space-y-4">
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">User Information</h3>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.username }}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">MAC Address</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.mac_address }}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Router</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.router_name }}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Uptime</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.uptime }}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Connection Details -->
-                            <div class="space-y-4">
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Connection Details</h3>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Bytes In</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.bytes_in }}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Bytes Out</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.bytes_out }}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Packets In</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.packets_in }}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Packets Out</label>
-                                        <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">{{ hotspotUser.packets_out }}</p>
-                                    </div>
-                                </div>
-                            </div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Active Sessions</h3>
+                        <div v-if="activeSessions.length > 0" class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">IP Address</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">MAC Address</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Uptime</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Data In</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Data Out</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Packets In</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Packets Out</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    <tr v-for="session in activeSessions" :key="session.id">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ session.ip_address }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ session.mac_address }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ session.uptime }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ formatBytes(session.bytes_in) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ formatBytes(session.bytes_out) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ session.packets_in }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ session.packets_out }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div v-else class="text-center text-gray-500 dark:text-gray-400 py-4">
+                            No active sessions
                         </div>
                     </div>
                 </div>
