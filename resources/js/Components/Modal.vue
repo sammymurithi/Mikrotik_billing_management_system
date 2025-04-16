@@ -20,19 +20,23 @@ const emit = defineEmits(['close']);
 const dialog = ref();
 const showSlot = ref(props.show);
 
-watch(() => props.show, () => {
-    if (props.show) {
+watch(() => props.show, (value) => {
+    console.log('Modal show prop changed:', value);
+    if (value) {
         document.body.style.overflow = 'hidden';
         showSlot.value = true;
         dialog.value?.showModal();
     } else {
         document.body.style.overflow = null;
+        // Use a longer delay to ensure the modal stays visible long enough
         setTimeout(() => {
-            dialog.value?.close();
-            showSlot.value = false;
-        }, 200);
+            if (!props.show) {
+                dialog.value?.close();
+                showSlot.value = false;
+            }
+        }, 300);
     }
-});
+}, { immediate: true });
 
 const close = () => {
     if (props.closeable) {

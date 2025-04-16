@@ -17,6 +17,8 @@ class HotspotProfileController extends Controller
         $routers = Router::all();
         \Log::info('Fetching hotspot profiles from ' . $routers->count() . ' routers');
 
+        $allProfiles = [];
+
         foreach ($routers as $router) {
             \Log::info("Processing router: {$router->name} ({$router->ip_address})");
 
@@ -32,12 +34,22 @@ class HotspotProfileController extends Controller
                 $mikrotikProfiles = $client->query($query)->read();
                 \Log::info("Found " . count($mikrotikProfiles) . " hotspot profiles on router {$router->name}");
 
+                if (empty($mikrotikProfiles)) {
+                    \Log::warning("No profiles found on router {$router->name}. This might indicate a connection issue or no profiles exist.");
+                    continue;
+                }
+
                 $existingProfiles = HotspotProfile::where('router_id', $router->id)
                     ->pluck('mikrotik_id')
                     ->toArray();
 
                 $mikrotikProfileIds = [];
                 foreach ($mikrotikProfiles as $profile) {
+                    if (empty($profile['name'])) {
+                        \Log::warning("Found profile with empty name on router {$router->name}, skipping");
+                        continue;
+                    }
+
                     $hotspotProfile = HotspotProfile::updateOrCreate(
                         [
                             'mikrotik_id' => $profile['.id'],
@@ -49,10 +61,12 @@ class HotspotProfileController extends Controller
                             'shared_users' => $profile['shared-users'] ?? null,
                             'mac_cookie_timeout' => $profile['mac-cookie-timeout'] ?? null,
                             'keepalive_timeout' => $profile['keepalive-timeout'] ?? null,
+                            'session_timeout' => $profile['session-timeout'] ?? null,
                         ]
                     );
 
                     $mikrotikProfileIds[] = $profile['.id'];
+                    $allProfiles[] = $hotspotProfile;
                 }
 
                 $profilesToDelete = array_diff($existingProfiles, $mikrotikProfileIds);
@@ -72,21 +86,23 @@ class HotspotProfileController extends Controller
             }
         }
 
-        $hotspotProfiles = HotspotProfile::with('router')
-            ->get()
-            ->map(function ($profile) {
-                return [
-                    'id' => $profile->id,
-                    'name' => $profile->name,
-                    'rate_limit' => $profile->rate_limit,
-                    'shared_users' => $profile->shared_users,
-                    'mac_cookie_timeout' => $profile->mac_cookie_timeout,
-                    'keepalive_timeout' => $profile->keepalive_timeout,
-                    'router_id' => $profile->router_id,
-                    'router_name' => $profile->router->name,
-                ];
-            })
-            ->toArray();
+        if (empty($allProfiles)) {
+            \Log::warning("No profiles were found in any router. This might indicate a connection issue or no profiles exist.");
+        }
+
+        $hotspotProfiles = collect($allProfiles)->map(function ($profile) {
+            return [
+                'id' => $profile->id,
+                'name' => $profile->name,
+                'rate_limit' => $profile->rate_limit,
+                'shared_users' => $profile->shared_users,
+                'mac_cookie_timeout' => $profile->mac_cookie_timeout,
+                'keepalive_timeout' => $profile->keepalive_timeout,
+                'session_timeout' => $profile->session_timeout,
+                'router_id' => $profile->router_id,
+                'router_name' => $profile->router->name,
+            ];
+        })->toArray();
 
         \Log::info("Returning " . count($hotspotProfiles) . " total hotspot profiles to view");
 
@@ -109,6 +125,7 @@ class HotspotProfileController extends Controller
             'shared_users' => 'nullable|string',
             'mac_cookie_timeout' => 'nullable|string',
             'keepalive_timeout' => 'nullable|string',
+            'session_timeout' => 'nullable|string',
             'router_id' => 'required|exists:routers,id',
         ]);
 
@@ -118,6 +135,7 @@ class HotspotProfileController extends Controller
             'shared_users' => $validated['shared_users'] ?? null,
             'mac_cookie_timeout' => $validated['mac_cookie_timeout'] ?? null,
             'keepalive_timeout' => $validated['keepalive_timeout'] ?? null,
+            'session_timeout' => $validated['session_timeout'] ?? null,
             'router_id' => $validated['router_id'],
         ]);
 
@@ -140,10 +158,16 @@ class HotspotProfileController extends Controller
                 $query->equal('shared-users', $validated['shared_users']);
             }
             if (!empty($validated['mac_cookie_timeout'])) {
-                $query->equal('mac-cookie-timeout', $validated['mac_cookie_timeout']);
+                $macCookieTimeout = $this->formatTimeForMikrotik($validated['mac_cookie_timeout']);
+                $query->equal('mac-cookie-timeout', $macCookieTimeout);
+            }
+            if (!empty($validated['session_timeout'])) {
+                $sessionTimeout = $this->formatTimeForMikrotik($validated['session_timeout']);
+                $query->equal('session-timeout', $sessionTimeout);
             }
             if (!empty($validated['keepalive_timeout'])) {
-                $query->equal('keepalive-timeout', $validated['keepalive_timeout']);
+                $keepaliveTimeout = $this->formatTimeForMikrotik($validated['keepalive_timeout']);
+                $query->equal('keepalive-timeout', $keepaliveTimeout);
             }
 
             $response = $client->query($query)->read();
@@ -177,6 +201,7 @@ class HotspotProfileController extends Controller
             'shared_users' => 'nullable|string',
             'mac_cookie_timeout' => 'nullable|string',
             'keepalive_timeout' => 'nullable|string',
+            'session_timeout' => 'nullable|string',
             'router_id' => 'required|exists:routers,id',
         ]);
 
@@ -191,6 +216,7 @@ class HotspotProfileController extends Controller
             'shared_users' => $validated['shared_users'] ?? null,
             'mac_cookie_timeout' => $validated['mac_cookie_timeout'] ?? null,
             'keepalive_timeout' => $validated['keepalive_timeout'] ?? null,
+            'session_timeout' => $validated['session_timeout'] ?? null,
             'router_id' => $validated['router_id'],
         ]);
 
@@ -221,17 +247,8 @@ class HotspotProfileController extends Controller
                 'port' => $newRouter->port ?? 8728,
             ]);
 
-            $query = new Query('/ip/hotspot/user/profile/print');
-            $query->where('.id', $hotspotProfile->mikrotik_id);
-            $response = $client->query($query)->read();
-
-            if ($routerChanged || empty($response)) {
-                $query = new Query('/ip/hotspot/user/profile/add');
-            } else {
-                $query = new Query('/ip/hotspot/user/profile/set');
-                $query->equal('.id', $hotspotProfile->mikrotik_id);
-            }
-
+            $query = new Query('/ip/hotspot/user/profile/set');
+            $query->equal('.id', $hotspotProfile->mikrotik_id);
             $query->equal('name', $validated['name']);
             if (!empty($validated['rate_limit'])) {
                 $query->equal('rate-limit', $validated['rate_limit']);
@@ -240,10 +257,16 @@ class HotspotProfileController extends Controller
                 $query->equal('shared-users', $validated['shared_users']);
             }
             if (!empty($validated['mac_cookie_timeout'])) {
-                $query->equal('mac-cookie-timeout', $validated['mac_cookie_timeout']);
+                $macCookieTimeout = $this->formatTimeForMikrotik($validated['mac_cookie_timeout']);
+                $query->equal('mac-cookie-timeout', $macCookieTimeout);
+            }
+            if (!empty($validated['session_timeout'])) {
+                $sessionTimeout = $this->formatTimeForMikrotik($validated['session_timeout']);
+                $query->equal('session-timeout', $sessionTimeout);
             }
             if (!empty($validated['keepalive_timeout'])) {
-                $query->equal('keepalive-timeout', $validated['keepalive_timeout']);
+                $keepaliveTimeout = $this->formatTimeForMikrotik($validated['keepalive_timeout']);
+                $query->equal('keepalive-timeout', $keepaliveTimeout);
             }
 
             $response = $client->query($query)->read();
@@ -268,6 +291,44 @@ class HotspotProfileController extends Controller
 
         return redirect()->route('hotspot.profiles.index')
             ->with('success', 'Hotspot profile updated successfully.');
+    }
+
+    /**
+     * Format time for Mikrotik
+     * Validates and returns the time in Mikrotik's native format (e.g., "2h30m")
+     */
+    private function formatTimeForMikrotik($timeStr)
+    {
+        if (empty($timeStr)) {
+            return null;
+        }
+
+        // If already in Mikrotik format (e.g., "2h30m"), return as is
+        if (preg_match('/^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$/', $timeStr)) {
+            return $timeStr;
+        }
+
+        // If in HH:MM:SS format, convert to Mikrotik format
+        if (preg_match('/^(\d{2}):(\d{2}):(\d{2})$/', $timeStr, $matches)) {
+            $hours = (int)$matches[1];
+            $minutes = (int)$matches[2];
+            $seconds = (int)$matches[3];
+
+            $result = '';
+            if ($hours > 0) {
+                $result .= $hours . 'h';
+            }
+            if ($minutes > 0) {
+                $result .= $minutes . 'm';
+            }
+            if ($seconds > 0) {
+                $result .= $seconds . 's';
+            }
+            return $result;
+        }
+
+        // If no valid format is found, return null
+        return null;
     }
 
     public function destroy($id)

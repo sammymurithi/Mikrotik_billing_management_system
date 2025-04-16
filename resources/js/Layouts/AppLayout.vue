@@ -59,7 +59,11 @@ const logout = () => {
                                 </NavLink>
                                 <NavLink :href="route('hotspot.users.index')" :active="route().current('hotspot.users.*')">
                                     Hotspot Users
+                                </NavLink>                                
+                                <NavLink :href="route('hotspot.profiles.index')" :active="route().current('hotspot.profiles.users.*')">
+                                    Packages
                                 </NavLink>
+
                             </div>
                         </div>
 

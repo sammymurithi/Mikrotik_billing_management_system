@@ -15,6 +15,7 @@ class CreateHotspotProfilesTable extends Migration
             $table->string('name');
             $table->string('rate_limit')->nullable();
             $table->string('shared_users')->nullable();
+            $table->string('session_timeout')->nullable();
             $table->string('mac_cookie_timeout')->nullable();
             $table->string('keepalive_timeout')->nullable();
             $table->timestamps();

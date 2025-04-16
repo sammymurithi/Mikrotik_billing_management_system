@@ -14,6 +14,7 @@ class HotspotProfile extends Model
         'shared_users',
         'mac_cookie_timeout',
         'keepalive_timeout',
+        'session_timeout',
     ];
 
     public function router()
