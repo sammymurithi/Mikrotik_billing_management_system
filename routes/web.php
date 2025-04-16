@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\RouterController;
+use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\HotspotUserController;
 use App\Http\Controllers\HotspotProfileController;
@@ -31,6 +32,10 @@ Route::middleware([
     // Routers
     Route::resource('routers', RouterController::class);
     Route::get('/routers/{id}/check-connection', [RouterController::class, 'checkConnection'])->name('routers.check-connection');
+
+    // Tickets
+    Route::resource('tickets', TicketController::class);
+    Route::get('/tickets/{ticket}/download-attachment', [TicketController::class, 'downloadAttachment'])->name('tickets.download-attachment');
 
     Route::middleware(['auth'])->prefix('hotspot')->name('hotspot.')->group(function () {
 
