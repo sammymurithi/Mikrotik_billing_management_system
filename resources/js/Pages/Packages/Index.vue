@@ -8,19 +8,8 @@
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <!-- Success Alert -->
-                <div v-if="page.props.flash && page.props.flash.success" class="mb-4">
-                    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                        <span class="block sm:inline">{{ page.props.flash.success }}</span>
-                    </div>
-                </div>
-
-                <!-- Error Alert -->
-                <div v-if="page.props.flash && page.props.flash.error" class="mb-4">
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                        <span class="block sm:inline">{{ page.props.flash.error }}</span>
-                    </div>
-                </div>
+                <!-- Banner for notifications -->
+                <Banner v-if="page.props.jetstream.flash?.banner" />
 
                 <div v-if="editMode" class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
@@ -239,6 +228,7 @@ import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import CreatePackage from './Partials/CreatePackage.vue';
+import Banner from '@/Components/Banner.vue';
 
 const page = usePage();
 const props = defineProps({
@@ -321,9 +311,20 @@ const updateProfile = () => {
             form.reset();
             form.clearErrors();
             fetchProfiles();
+            // Set success banner
+            page.props.jetstream.flash = {
+                banner: 'Package updated successfully',
+                bannerStyle: 'success'
+            };
+            router.reload();
         },
         onError: (errors) => {
-            alert('Error updating profile: ' + (errors.error || 'Unknown error'));
+            // Set error banner
+            page.props.jetstream.flash = {
+                banner: 'Error updating profile: ' + (errors.error || 'Unknown error'),
+                bannerStyle: 'danger'
+            };
+            router.reload();
         },
     });
 };
@@ -332,10 +333,20 @@ const deleteProfile = (id) => {
     if (confirm('Are you sure you want to delete this package?')) {
         router.delete(route('hotspot.profiles.destroy', id), {
             onSuccess: () => {
+                // Set success banner
+                page.props.jetstream.flash = {
+                    banner: 'Package deleted successfully',
+                    bannerStyle: 'success'
+                };
                 router.reload();
             },
             onError: (errors) => {
-                console.error('Error deleting profile:', errors);
+                // Set error banner
+                page.props.jetstream.flash = {
+                    banner: 'Error deleting profile: ' + (errors.error || 'Unknown error'),
+                    bannerStyle: 'danger'
+                };
+                router.reload();
             },
         });
     }
@@ -345,12 +356,8 @@ const fetchProfiles = () => {
     router.reload();
 };
 
-// Auto-hide alerts after 5 seconds
+// Remove the auto-hide alerts section since Banner component handles this
 onMounted(() => {
-    if (page.props.flash && (page.props.flash.success || page.props.flash.error)) {
-        setTimeout(() => {
-            router.reload();
-        }, 5000);
-    }
+    // Remove the auto-hide alerts code since Banner component handles this
 });
 </script>
