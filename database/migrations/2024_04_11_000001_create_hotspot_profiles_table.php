@@ -14,7 +14,7 @@ class CreateHotspotProfilesTable extends Migration
             $table->foreignId('router_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->string('rate_limit')->nullable();
-            $table->decimal('price', 10, 2)->nullable();
+            $table->decimal('price', 10, 2)->nullable()->default(0.00);
             $table->string('shared_users')->nullable();
             $table->string('session_timeout')->nullable();
             $table->string('mac_cookie_timeout')->nullable();

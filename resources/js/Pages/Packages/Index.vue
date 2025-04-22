@@ -35,12 +35,12 @@
                         </div>
                         
                         <!-- Edit Form -->
-                        <form @submit.prevent="updateProfile" class="space-y-6" v-if="selectedProfile">
+                        <form @submit.prevent="updateProfile" class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <InputLabel for="name" value="Name" />
+                                    <InputLabel for="edit_name" value="Name" />
                                     <TextInput
-                                        id="name"
+                                        id="edit_name"
                                         v-model="form.name"
                                         type="text"
                                         class="mt-1 block w-full"
@@ -51,21 +51,21 @@
                                 </div>
                                 
                                 <div>
-                                    <InputLabel for="rate_limit" value="Rate Limit" />
+                                    <InputLabel for="edit_rate_limit" value="Rate Limit" />
                                     <TextInput
-                                        id="rate_limit"
+                                        id="edit_rate_limit"
                                         v-model="form.rate_limit"
                                         type="text"
                                         class="mt-1 block w-full"
-                                        placeholder="e.g., 2M/1M"
+                                        placeholder="e.g., 20M/15M"
                                     />
                                     <InputError :message="form.errors.rate_limit" class="mt-2" />
                                 </div>
                                 
                                 <div>
-                                    <InputLabel for="shared_users" value="Shared Users" />
+                                    <InputLabel for="edit_shared_users" value="Shared Users" />
                                     <TextInput
-                                        id="shared_users"
+                                        id="edit_shared_users"
                                         v-model="form.shared_users"
                                         type="text"
                                         class="mt-1 block w-full"
@@ -75,10 +75,10 @@
                                 </div>
                                 
                                 <div>
-                                    <InputLabel for="router_id" value="Router" />
+                                    <InputLabel for="edit_router_id" value="Router" />
                                     <select
                                         v-model="form.router_id"
-                                        id="router_id"
+                                        id="edit_router_id"
                                         class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm"
                                         required
                                     >
@@ -91,9 +91,9 @@
                                 </div>
                                 
                                 <div>
-                                    <InputLabel for="mac_cookie_timeout" value="MAC Cookie Timeout" />
+                                    <InputLabel for="edit_mac_cookie_timeout" value="MAC Cookie Timeout" />
                                     <TextInput
-                                        id="mac_cookie_timeout"
+                                        id="edit_mac_cookie_timeout"
                                         v-model="form.mac_cookie_timeout"
                                         type="text"
                                         class="mt-1 block w-full"
@@ -103,9 +103,9 @@
                                 </div>
                                 
                                 <div>
-                                    <InputLabel for="keepalive_timeout" value="Keepalive Timeout" />
+                                    <InputLabel for="edit_keepalive_timeout" value="Keepalive Timeout" />
                                     <TextInput
-                                        id="keepalive_timeout"
+                                        id="edit_keepalive_timeout"
                                         v-model="form.keepalive_timeout"
                                         type="text"
                                         class="mt-1 block w-full"
@@ -115,9 +115,9 @@
                                 </div>
                                 
                                 <div>
-                                    <InputLabel for="session_timeout" value="Session Timeout" />
+                                    <InputLabel for="edit_session_timeout" value="Session Timeout" />
                                     <TextInput
-                                        id="session_timeout"
+                                        id="edit_session_timeout"
                                         v-model="form.session_timeout"
                                         type="text"
                                         class="mt-1 block w-full"
@@ -130,9 +130,9 @@
                                 </div>
                                 
                                 <div>
-                                    <InputLabel for="price" value="Price" />
+                                    <InputLabel for="edit_price" value="Price" />
                                     <TextInput
-                                        id="price"
+                                        id="edit_price"
                                         v-model="form.price"
                                         type="number"
                                         step="0.01"
@@ -147,8 +147,8 @@
                                 </div>
                             </div>
                             
-                            <div class="flex items-center justify-end">
-                                <PrimaryButton :disabled="form.processing" class="ml-3">
+                            <div class="flex items-center justify-end mt-6">
+                                <PrimaryButton :disabled="form.processing" class="ml-3" type="submit">
                                     Update Profile
                                 </PrimaryButton>
                             </div>
@@ -241,8 +241,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import CreatePackage from './Partials/CreatePackage.vue';
 
 const page = usePage();
-
-defineProps({
+const props = defineProps({
     hotspotProfiles: {
         type: Array,
         required: false,
@@ -271,11 +270,20 @@ const form = useForm({
 });
 
 const startEdit = (profile) => {
-    console.log('Starting edit for profile:', profile);
+    // Scroll to top immediately
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Enable edit mode first
+    editMode.value = true;
+    
     // Make a deep copy of the profile to avoid reactivity issues
     selectedProfile.value = JSON.parse(JSON.stringify(profile));
     
-    // Populate the form with the profile data
+    // Reset and clear the form
+    form.reset();
+    form.clearErrors();
+    
+    // Set form data immediately
     form.name = profile.name || '';
     form.rate_limit = profile.rate_limit || '';
     form.shared_users = profile.shared_users || '';
@@ -283,42 +291,38 @@ const startEdit = (profile) => {
     form.keepalive_timeout = profile.keepalive_timeout || '';
     form.session_timeout = profile.session_timeout || '';
     form.price = profile.price || '';
-    form.router_id = profile.router_id || '';
-    
-    // Enable edit mode
-    editMode.value = true;
-    
-    // Scroll to the top of the page to show the edit form
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    form.router_id = profile.router_id;
 };
 
 const cancelEdit = () => {
     editMode.value = false;
     selectedProfile.value = null;
     form.reset();
+    form.clearErrors();
 };
 
 const updateProfile = () => {
-    if (!selectedProfile.value) return;
-    
-    console.log('Updating profile with data:', form.data());
+    if (!selectedProfile.value) {
+        return;
+    }
     
     // Show a confirmation if the price has been changed
-    if (selectedProfile.value.price !== form.price && form.price) {
+    if (selectedProfile.value.price !== form.price) {
         if (!confirm('You are changing the price of this package. This will only affect the price shown in the captive portal and will not be stored on the MikroTik router. Continue?')) {
             return;
         }
     }
     
-    form.put(route('hotspot.profiles.update', selectedProfile.value.id), {
+    router.put(route('hotspot.profiles.update', selectedProfile.value.id), form.data(), {
+        preserveScroll: true,
         onSuccess: () => {
-            console.log('Profile updated successfully');
             editMode.value = false;
             selectedProfile.value = null;
+            form.reset();
+            form.clearErrors();
             fetchProfiles();
         },
         onError: (errors) => {
-            console.error('Error updating profile:', errors);
             alert('Error updating profile: ' + (errors.error || 'Unknown error'));
         },
     });

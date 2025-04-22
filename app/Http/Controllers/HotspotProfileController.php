@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Models\HotspotProfile;
@@ -15,13 +14,9 @@ class HotspotProfileController extends Controller
     public function index()
     {
         $routers = Router::all();
-        \Log::info('Fetching hotspot profiles from ' . $routers->count() . ' routers');
-
         $allProfiles = [];
 
         foreach ($routers as $router) {
-            \Log::info("Processing router: {$router->name} ({$router->ip_address})");
-
             try {
                 $client = new Client([
                     'host' => $router->ip_address,
@@ -32,23 +27,21 @@ class HotspotProfileController extends Controller
 
                 $query = new Query('/ip/hotspot/user/profile/print');
                 $mikrotikProfiles = $client->query($query)->read();
-                \Log::info("Found " . count($mikrotikProfiles) . " hotspot profiles on router {$router->name}");
 
                 if (empty($mikrotikProfiles)) {
-                    \Log::warning("No profiles found on router {$router->name}. This might indicate a connection issue or no profiles exist.");
                     continue;
                 }
 
                 $existingProfiles = HotspotProfile::where('router_id', $router->id)
-                    ->pluck('mikrotik_id')
-                    ->toArray();
+                    ->get();
 
                 $mikrotikProfileIds = [];
                 foreach ($mikrotikProfiles as $profile) {
                     if (empty($profile['name'])) {
-                        \Log::warning("Found profile with empty name on router {$router->name}, skipping");
                         continue;
                     }
+
+                    $existingProfile = $existingProfiles->where('mikrotik_id', $profile['.id'])->first();
 
                     $hotspotProfile = HotspotProfile::updateOrCreate(
                         [
@@ -62,7 +55,6 @@ class HotspotProfileController extends Controller
                             'mac_cookie_timeout' => $profile['mac-cookie-timeout'] ?? null,
                             'keepalive_timeout' => $profile['keepalive-timeout'] ?? null,
                             'session_timeout' => $profile['session-timeout'] ?? null,
-                            'price' => $profile['price'] ?? null,
                         ]
                     );
 
@@ -70,25 +62,20 @@ class HotspotProfileController extends Controller
                     $allProfiles[] = $hotspotProfile;
                 }
 
-                $profilesToDelete = array_diff($existingProfiles, $mikrotikProfileIds);
+                $profilesToDelete = $existingProfiles
+                    ->whereNotIn('mikrotik_id', $mikrotikProfileIds)
+                    ->pluck('mikrotik_id')
+                    ->toArray();
+
                 if (!empty($profilesToDelete)) {
                     HotspotProfile::where('router_id', $router->id)
                         ->whereIn('mikrotik_id', $profilesToDelete)
                         ->delete();
-                    \Log::info("Deleted " . count($profilesToDelete) . " profiles from database for router {$router->name} that no longer exist in MikroTik");
                 }
 
             } catch (\Exception $e) {
-                \Log::error("Failed to fetch hotspot profiles from router {$router->name}", [
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]);
                 continue;
             }
-        }
-
-        if (empty($allProfiles)) {
-            \Log::warning("No profiles were found in any router. This might indicate a connection issue or no profiles exist.");
         }
 
         $hotspotProfiles = collect($allProfiles)->map(function ($profile) {
@@ -107,8 +94,6 @@ class HotspotProfileController extends Controller
             ];
         })->toArray();
 
-        \Log::info("Returning " . count($hotspotProfiles) . " total hotspot profiles to view");
-
         return Inertia::render('Packages/Index', [
             'hotspotProfiles' => $hotspotProfiles,
             'routers' => $routers->map(function ($router) {
@@ -122,11 +107,9 @@ class HotspotProfileController extends Controller
 
     public function store(Request $request)
     {
-        \Log::info('Creating hotspot profile with data:', $request->all());
-        
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:hotspot_profiles',
-            'rate_limit' => 'nullable|string',
+            'name' => 'required|string|max:255',
+            'rate_limit' => 'nullable|string|regex:/^\d+[KMG]\/\d+[KMG]$/',
             'shared_users' => 'nullable|string',
             'mac_cookie_timeout' => 'nullable|string',
             'keepalive_timeout' => 'nullable|string',
@@ -134,8 +117,12 @@ class HotspotProfileController extends Controller
             'price' => 'nullable|numeric|min:0',
             'router_id' => 'required|exists:routers,id',
         ]);
-        
-        \Log::info('Validated data:', $validated);
+
+        if (isset($validated['rate_limit']) && !preg_match('/^\d+[KMG]\/\d+[KMG]$/', $validated['rate_limit'])) {
+            $validated['rate_limit'] = preg_replace('/^(\d+)\/(\d+)$/', '$1M/$2M', $validated['rate_limit']);
+        }
+
+        $price = isset($validated['price']) ? (float)$validated['price'] : 0.00;
 
         $profileData = [
             'name' => $validated['name'],
@@ -144,17 +131,14 @@ class HotspotProfileController extends Controller
             'mac_cookie_timeout' => $validated['mac_cookie_timeout'] ?? null,
             'keepalive_timeout' => $validated['keepalive_timeout'] ?? null,
             'session_timeout' => $validated['session_timeout'] ?? null,
-            'price' => $validated['price'] ?? null,
+            'price' => $price,
             'router_id' => $validated['router_id'],
         ];
-        
-        \Log::info('Creating hotspot profile with data:', $profileData);
-        $hotspotProfile = HotspotProfile::create($profileData);
-        \Log::info('Created hotspot profile:', ['id' => $hotspotProfile->id, 'price' => $hotspotProfile->price]);
-
-        $router = Router::findOrFail($validated['router_id']);
 
         try {
+            $profile = HotspotProfile::create($profileData);
+
+            $router = Router::findOrFail($validated['router_id']);
             $client = new Client([
                 'host' => $router->ip_address,
                 'user' => $router->username,
@@ -185,25 +169,17 @@ class HotspotProfileController extends Controller
 
             $response = $client->query($query)->read();
 
-            if (!isset($response['!done'])) {
-                throw new \Exception('Failed to create profile in MikroTik');
-            }
-
-            $query = new Query('/ip/hotspot/user/profile/print');
-            $query->where('name', $validated['name']);
-            $response = $client->query($query)->read();
-            if (!empty($response)) {
-                $hotspotProfile->update(['mikrotik_id' => $response[0]['.id']]);
+            if (isset($response['after']['ret'])) {
+                $profile->mikrotik_id = $response['after']['ret'];
+                $profile->save();
+                return redirect()->route('hotspot.profiles.index')->with('success', 'Hotspot profile created successfully.');
+            } else {
+                $profile->delete();
+                return back()->with('error', 'Failed to create profile in MikroTik.');
             }
         } catch (\Exception $e) {
-            $hotspotProfile->delete();
-            \Log::error('Failed to create hotspot profile on router: ' . $e->getMessage());
-            return redirect()->route('hotspot.profiles.index')
-                ->withErrors(['error' => 'Failed to create hotspot profile on router: ' . $e->getMessage()]);
+            return back()->with('error', 'Failed to create hotspot profile: ' . $e->getMessage());
         }
-
-        return redirect()->route('hotspot.profiles.index')
-            ->with('success', 'Hotspot profile created successfully.');
     }
 
     public function update(Request $request, $id)
@@ -262,23 +238,19 @@ class HotspotProfileController extends Controller
                 'port' => $newRouter->port ?? 8728,
             ]);
 
-            // Check if the profile exists on the router
             $query = new Query('/ip/hotspot/user/profile/print');
             $query->where('.id', $hotspotProfile->mikrotik_id);
             $profileExists = $client->query($query)->read();
             
             if (empty($profileExists) && !$routerChanged) {
-                // Profile doesn't exist on router, create it instead of updating
                 $query = new Query('/ip/hotspot/user/profile/add');
                 $query->equal('name', $validated['name']);
             } else {
-                // Profile exists, update it
                 $query = new Query('/ip/hotspot/user/profile/set');
                 $query->equal('.id', $hotspotProfile->mikrotik_id);
                 $query->equal('name', $validated['name']);
             }
             
-            // Add parameters to the query
             if (!empty($validated['rate_limit'])) {
                 $query->equal('rate-limit', $validated['rate_limit']);
             }
@@ -298,49 +270,36 @@ class HotspotProfileController extends Controller
                 $query->equal('keepalive-timeout', $keepaliveTimeout);
             }
 
-            try {
-                $response = $client->query($query)->read();
-                
-                // After update/create, get the profile ID to ensure it's correctly stored
-                $query = new Query('/ip/hotspot/user/profile/print');
-                $query->where('name', $validated['name']);
-                $profileResponse = $client->query($query)->read();
-                
-                if (!empty($profileResponse)) {
-                    // Update the mikrotik_id in the database to ensure it's correct
-                    $hotspotProfile->update(['mikrotik_id' => $profileResponse[0]['.id']]);
-                } else {
-                    throw new \Exception('Profile created/updated but could not be found afterwards');
-                }
-            } catch (\Exception $e) {
-                throw new \Exception('Failed to update profile in MikroTik: ' . $e->getMessage());
+            $response = $client->query($query)->read();
+            
+            $query = new Query('/ip/hotspot/user/profile/print');
+            $query->where('name', $validated['name']);
+            $profileResponse = $client->query($query)->read();
+            
+            if (!empty($profileResponse)) {
+                $hotspotProfile->update(['mikrotik_id' => $profileResponse[0]['.id']]);
+            } else {
+                throw new \Exception('Profile created/updated but could not be found afterwards');
             }
+
+            return redirect()->route('hotspot.profiles.index')
+                ->with('success', 'Hotspot profile updated successfully.');
         } catch (\Exception $e) {
-            \Log::error('Failed to update hotspot profile on router: ' . $e->getMessage());
             return redirect()->route('hotspot.profiles.index')
                 ->withErrors(['error' => 'Failed to update hotspot profile on router: ' . $e->getMessage()]);
         }
-
-        return redirect()->route('hotspot.profiles.index')
-            ->with('success', 'Hotspot profile updated successfully.');
     }
 
-    /**
-     * Format time for Mikrotik
-     * Validates and returns the time in Mikrotik's native format (e.g., "2h30m")
-     */
     private function formatTimeForMikrotik($timeStr)
     {
         if (empty($timeStr)) {
             return null;
         }
 
-        // If already in Mikrotik format (e.g., "2h30m"), return as is
         if (preg_match('/^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$/', $timeStr)) {
             return $timeStr;
         }
 
-        // If in HH:MM:SS format, convert to Mikrotik format
         if (preg_match('/^(\d{2}):(\d{2}):(\d{2})$/', $timeStr, $matches)) {
             $hours = (int)$matches[1];
             $minutes = (int)$matches[2];
@@ -359,7 +318,6 @@ class HotspotProfileController extends Controller
             return $result;
         }
 
-        // If no valid format is found, return null
         return null;
     }
 
@@ -388,7 +346,6 @@ class HotspotProfileController extends Controller
 
             $hotspotProfile->delete();
         } catch (\Exception $e) {
-            \Log::error('Failed to delete hotspot profile from router: ' . $e->getMessage());
             return redirect()->route('hotspot.profiles.index')
                 ->withErrors(['error' => 'Failed to delete hotspot profile from router: ' . $e->getMessage()]);
         }

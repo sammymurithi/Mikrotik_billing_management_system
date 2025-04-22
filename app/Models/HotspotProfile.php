@@ -18,8 +18,21 @@ class HotspotProfile extends Model
         'price',
     ];
 
+    protected $casts = [
+        'price' => 'decimal:2',
+    ];
+
+    protected $attributes = [
+        'price' => 0.00,
+    ];
+
     public function router()
     {
         return $this->belongsTo(Router::class);
+    }
+
+    public function setPriceAttribute($value)
+    {
+        $this->attributes['price'] = $value ?? 0.00;
     }
 }
