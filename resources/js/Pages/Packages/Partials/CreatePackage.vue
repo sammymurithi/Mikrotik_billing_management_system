@@ -136,6 +136,23 @@
                         </div>
 
                         <div>
+                            <InputLabel for="price" value="Price" />
+                            <TextInput
+                                id="price"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="mt-1 block w-full"
+                                v-model="form.price"
+                                placeholder="e.g., 9.99"
+                            />
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Package price in Kes (will be shown in captive portal)
+                            </p>
+                            <InputError class="mt-2" :message="form.errors.price" />
+                        </div>
+
+                        <div>
                             <InputLabel for="router_id" value="Router" />
                             <select
                                 id="router_id"
@@ -197,6 +214,7 @@ const form = useForm({
     mac_cookie_timeout: '',
     keepalive_timeout: '',
     session_timeout: '',
+    price: '',
     router_id: '',
 });
 
@@ -223,17 +241,17 @@ const updateSessionTimeout = () => {
 };
 
 const submit = () => {
-    const formData = {
-        ...form.data(),
-        mac_cookie_timeout: convertToMikrotikTime(form.mac_cookie_timeout || '00:00:00'),
-        keepalive_timeout: convertToMikrotikTime(form.keepalive_timeout || '00:00:00'),
-        session_timeout: convertToMikrotikTime(form.session_timeout || '00:00:00'),
-    };
-
-    console.log('Submitting form data:', formData);
+    // Convert time values directly in the form object
+    form.mac_cookie_timeout = convertToMikrotikTime(form.mac_cookie_timeout || '00:00:00');
+    form.keepalive_timeout = convertToMikrotikTime(form.keepalive_timeout || '00:00:00');
+    form.session_timeout = convertToMikrotikTime(form.session_timeout || '00:00:00');
+    
+    console.log('Submitting form data:', form.data());
+    console.log('Price value:', form.price);
 
     form.post(route('hotspot.profiles.store'), {
         onSuccess: () => {
+            console.log('Profile created successfully with price:', form.price);
             // Reset form and selections
             form.reset();
             selectedMacCookieTimeout.value = '';
@@ -248,6 +266,10 @@ const submit = () => {
                 window.location.href = route('hotspot.profiles.index');
             }, 100);
         },
+        onError: (errors) => {
+            console.error('Error creating profile:', errors);
+            alert('Error creating profile: ' + (errors.error || 'Unknown error'));
+        }
     });
 };
 </script>

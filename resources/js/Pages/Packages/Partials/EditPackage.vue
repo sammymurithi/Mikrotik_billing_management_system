@@ -147,6 +147,23 @@
                 </div>
 
                 <div class="mt-4">
+                    <InputLabel for="price" value="Price" />
+                    <TextInput
+                        id="price"
+                        v-model="form.price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        class="mt-1 block w-full"
+                        placeholder="e.g., 9.99"
+                    />
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Package price in Kes (will be shown in captive portal)
+                    </p>
+                    <InputError :message="form.errors.price" class="mt-2" />
+                </div>
+
+                <div class="mt-4">
                     <InputLabel for="router_id" value="Router" />
                     <select
                         v-model="form.router_id"
@@ -209,6 +226,7 @@ const form = useForm({
     mac_cookie_timeout: '',
     keepalive_timeout: '',
     session_timeout: '',
+    price: '',
     router_id: '',
 });
 
@@ -247,6 +265,7 @@ watch(
                 form.mac_cookie_timeout = convertFromMikrotikTime(newProfile.mac_cookie_timeout) || '00:00:00';
                 form.keepalive_timeout = convertFromMikrotikTime(newProfile.keepalive_timeout) || '00:00:00';
                 form.session_timeout = convertFromMikrotikTime(newProfile.session_timeout) || '00:00:00';
+                form.price = newProfile.price || '';
                 form.router_id = newProfile.router_id || '';
                 
                 // Reset the select dropdowns

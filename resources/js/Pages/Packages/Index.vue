@@ -128,6 +128,23 @@
                                     </p>
                                     <InputError :message="form.errors.session_timeout" class="mt-2" />
                                 </div>
+                                
+                                <div>
+                                    <InputLabel for="price" value="Price" />
+                                    <TextInput
+                                        id="price"
+                                        v-model="form.price"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        class="mt-1 block w-full"
+                                        placeholder="e.g., 9.99"
+                                    />
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        Package price in Kes (will be shown in captive portal)
+                                    </p>
+                                    <InputError :message="form.errors.price" class="mt-2" />
+                                </div>
                             </div>
                             
                             <div class="flex items-center justify-end">
@@ -156,6 +173,7 @@
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rate Limit</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Shared Users</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">MAC Cookie Timeout</th>
@@ -168,6 +186,7 @@
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     <tr v-for="hotspotPackage in hotspotProfiles" :key="hotspotPackage.id">
                                         <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.price ? 'Kes ' + parseFloat(hotspotPackage.price).toFixed(2) : '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.rate_limit }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.shared_users }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.mac_cookie_timeout }}</td>
@@ -247,6 +266,7 @@ const form = useForm({
     mac_cookie_timeout: '',
     keepalive_timeout: '',
     session_timeout: '',
+    price: '',
     router_id: '',
 });
 
@@ -262,6 +282,7 @@ const startEdit = (profile) => {
     form.mac_cookie_timeout = profile.mac_cookie_timeout || '';
     form.keepalive_timeout = profile.keepalive_timeout || '';
     form.session_timeout = profile.session_timeout || '';
+    form.price = profile.price || '';
     form.router_id = profile.router_id || '';
     
     // Enable edit mode
@@ -282,6 +303,13 @@ const updateProfile = () => {
     
     console.log('Updating profile with data:', form.data());
     
+    // Show a confirmation if the price has been changed
+    if (selectedProfile.value.price !== form.price && form.price) {
+        if (!confirm('You are changing the price of this package. This will only affect the price shown in the captive portal and will not be stored on the MikroTik router. Continue?')) {
+            return;
+        }
+    }
+    
     form.put(route('hotspot.profiles.update', selectedProfile.value.id), {
         onSuccess: () => {
             console.log('Profile updated successfully');
@@ -291,6 +319,7 @@ const updateProfile = () => {
         },
         onError: (errors) => {
             console.error('Error updating profile:', errors);
+            alert('Error updating profile: ' + (errors.error || 'Unknown error'));
         },
     });
 };

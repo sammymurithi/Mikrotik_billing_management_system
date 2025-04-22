@@ -15,6 +15,7 @@ class HotspotProfile extends Model
         'mac_cookie_timeout',
         'keepalive_timeout',
         'session_timeout',
+        'price',
     ];
 
     public function router()
