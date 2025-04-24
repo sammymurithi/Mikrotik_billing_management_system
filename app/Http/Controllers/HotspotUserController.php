@@ -42,14 +42,18 @@ class HotspotUserController extends Controller
                 $query = new Query('/ip/hotspot/active/print');
                 $mikrotikSessions = $client->query($query)->read();
     
+                // First, collect all active sessions with their MAC addresses
                 foreach ($mikrotikSessions as $session) {
-                    $activeSessions[$session['user']] = [
-                        'uptime' => $session['uptime'] ?? '',
-                        'bytes_in' => $session['bytes-in'] ?? 0,
-                        'bytes_out' => $session['bytes-out'] ?? 0,
-                        'packets_in' => $session['packets-in'] ?? 0,
-                        'packets_out' => $session['packets-out'] ?? 0,
-                    ];
+                    if (isset($session['user']) && isset($session['mac-address'])) {
+                        $activeSessions[$session['user']] = [
+                            'mac_address' => $session['mac-address'],
+                            'uptime' => $session['uptime'] ?? '',
+                            'bytes_in' => $session['bytes-in'] ?? 0,
+                            'bytes_out' => $session['bytes-out'] ?? 0,
+                            'packets_in' => $session['packets-in'] ?? 0,
+                            'packets_out' => $session['packets-out'] ?? 0,
+                        ];
+                    }
                 }
     
                 $existingUsers = HotspotUser::where('router_id', $router->id)
@@ -60,13 +64,7 @@ class HotspotUserController extends Controller
                 foreach ($mikrotikUsers as $user) {
                     $username = $user['name'];
                     $isConnected = isset($activeSessions[$username]);
-    
-                    $macAddress = '';
-                    if (isset($user['mac-address']) && !empty($user['mac-address'])) {
-                        $macAddress = $user['mac-address'];
-                    } elseif (isset($user['mac_address']) && !empty($user['mac_address'])) {
-                        $macAddress = $user['mac_address'];
-                    }
+                    $macAddress = $isConnected ? $activeSessions[$username]['mac_address'] : '';
     
                     $isDisabled = false;
                     if (isset($user['disabled'])) {
@@ -99,6 +97,7 @@ class HotspotUserController extends Controller
                             ]);
                         }
                     } catch (\Exception $e) {
+                        \Log::error('Failed to update hotspot user: ' . $e->getMessage());
                         continue;
                     }
     
@@ -113,6 +112,7 @@ class HotspotUserController extends Controller
                 }
     
             } catch (\Exception $e) {
+                \Log::error('Failed to sync with router ' . $router->name . ': ' . $e->getMessage());
                 continue;
             }
         }
@@ -121,12 +121,13 @@ class HotspotUserController extends Controller
             ->get()
             ->map(function ($user) use ($activeSessions) {
                 $isConnected = isset($activeSessions[$user->username]);
+                $session = $isConnected ? $activeSessions[$user->username] : null;
                 
                 return [
                     'id' => $user->id,
                     'username' => $user->username,
                     'password' => $user->password,
-                    'mac_address' => $user->mac_address,
+                    'mac_address' => $session ? $session['mac_address'] : $user->mac_address,
                     'profile_name' => $user->profile_name,
                     'router_id' => $user->router_id,
                     'router_name' => $user->router->name,
@@ -134,7 +135,7 @@ class HotspotUserController extends Controller
                     'status' => $user->status,
                     'expires_at' => $user->expires_at ? $user->expires_at->toDateTimeString() : null,
                     'is_connected' => $isConnected,
-                    'session' => $isConnected ? $activeSessions[$user->username] : null,
+                    'session' => $session,
                 ];
             })
             ->toArray();
@@ -179,7 +180,6 @@ class HotspotUserController extends Controller
             'password' => 'required|string|min:6',
             'profile_name' => 'required|string|exists:hotspot_profiles,name',
             'router_id' => 'required|exists:routers,id',
-            'mac_address' => 'nullable|string',
             'expires_at' => 'nullable|date',
             'disabled' => 'boolean',
         ]);
@@ -189,7 +189,6 @@ class HotspotUserController extends Controller
             'password' => $validated['password'],
             'profile_name' => $validated['profile_name'],
             'router_id' => $validated['router_id'],
-            'mac_address' => $validated['mac_address'] ?? null,
             'disabled' => $validated['disabled'] ?? false,
             'status' => ($validated['disabled'] ?? false) ? 'disabled' : 'active',
             'expires_at' => $validated['expires_at'] ?? null,
@@ -210,10 +209,6 @@ class HotspotUserController extends Controller
             $query->equal('password', $validated['password']);
             $query->equal('profile', $validated['profile_name']);
             $query->equal('disabled', ($validated['disabled'] ?? false) ? 'no' : 'yes');
-    
-            if (!empty($validated['mac_address'])) {
-                $query->equal('mac-address', $validated['mac_address']);
-            }
     
             if (!empty($validated['expires_at'])) {
                 $expiresAt = new \DateTime($validated['expires_at']);
