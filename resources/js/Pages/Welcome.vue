@@ -120,14 +120,14 @@ const login = () => {
                 <div 
                     v-for="profile in sortedProfiles" 
                     :key="profile.id"
-                    class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer"
-                    :class="{ 'ring-4 ring-amber-500 dark:ring-amber-400': selectedPackage && selectedPackage.id === profile.id }"
+                    class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-xl shadow-lg overflow-hidden text-emerald-500 dark:text-emerald-400 transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer"
+                    :class="{ 'ring-4 ring-black-500 dark:ring-white-400': selectedPackage && selectedPackage.id === profile.id }"
                     @click="selectPackage(profile)"
                 >
                     <div class="p-6">
                         <h4 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">{{ profile.name }}</h4>
                         <div class="mb-4">
-                            <span class="text-3xl font-bold text-amber-500 dark:text-amber-400">
+                            <span class="text-3xl font-bold text-grey-500 dark:text-grey-400">
                                 {{ profile.price ? 'Kes ' + profile.price : 'Free' }}
                             </span>
                         </div>
@@ -152,7 +152,7 @@ const login = () => {
                             </li>
                         </ul>
                         <button 
-                            class="w-full py-2 px-4 bg-emerald-600 dark:bg-emerald-500 text-white rounded-lg hover:bg-emerald-700 dark:hover:bg-emerald-600 transition duration-300 font-medium"
+                            class="w-full py-2 px-4 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition duration-300 font-medium"
                             @click.stop="selectPackage(profile)"
                         >
                             Select Package
