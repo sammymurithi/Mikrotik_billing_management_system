@@ -68,4 +68,12 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+    
+    /**
+     * Get the tickets associated with the user.
+     */
+    public function tickets()
+    {
+        return $this->hasMany(Ticket::class);
+    }
 }

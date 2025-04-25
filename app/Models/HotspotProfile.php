@@ -3,19 +3,36 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HotspotProfile extends Model
 {
     protected $fillable = [
+        'mikrotik_id',
+        'router_id',
         'name',
         'rate_limit',
         'shared_users',
-        'comment'
+        'mac_cookie_timeout',
+        'keepalive_timeout',
+        'session_timeout',
+        'price',
     ];
 
-    public function users(): HasMany
+    protected $casts = [
+        'price' => 'decimal:2',
+    ];
+
+    protected $attributes = [
+        'price' => 0.00,
+    ];
+
+    public function router()
     {
-        return $this->hasMany(HotspotUser::class);
+        return $this->belongsTo(Router::class);
+    }
+
+    public function setPriceAttribute($value)
+    {
+        $this->attributes['price'] = $value ?? 0.00;
     }
 }

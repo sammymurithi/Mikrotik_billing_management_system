@@ -36,4 +36,9 @@ class HotspotUser extends Model
     {
         return $this->hasMany(HotspotSession::class);
     }
+
+    public function profile(): BelongsTo
+    {
+        return $this->belongsTo(HotspotProfile::class, 'profile_name', 'name');
+    }
 }

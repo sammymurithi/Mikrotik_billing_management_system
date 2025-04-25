@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { ref, onMounted } from 'vue';
+import { router } from '@inertiajs/vue3';
 
 const props = defineProps({
     routers: {
@@ -119,7 +120,7 @@ onMounted(() => {
                                                     :href="route('routers.show', router.id)"
                                                     class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
                                                 >
-                                                    View
+                                                    View Details
                                                 </Link>
                                                 <Link
                                                     :href="route('routers.edit', router.id)"

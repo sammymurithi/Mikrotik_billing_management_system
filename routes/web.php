@@ -2,20 +2,18 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\RouterController;
+use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\HotspotUserController;
+use App\Http\Controllers\HotspotProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+// Use CaptivePortalController for the homepage
+use App\Http\Controllers\CaptivePortalController;
+
+Route::get('/', [CaptivePortalController::class, 'index']);
 
 Route::middleware([
     'auth:sanctum',
@@ -31,13 +29,20 @@ Route::middleware([
     Route::resource('routers', RouterController::class);
     Route::get('/routers/{id}/check-connection', [RouterController::class, 'checkConnection'])->name('routers.check-connection');
 
-    // Hotspot Users
-    Route::get('/hotspot/users', [HotspotUserController::class, 'index'])->name('hotspot.users.index');
-    Route::get('/hotspot/users/create', [HotspotUserController::class, 'create'])->name('hotspot.users.create');
-    Route::post('/hotspot/users', [HotspotUserController::class, 'store'])->name('hotspot.users.store');
-    Route::get('/hotspot/users/{id}', [HotspotUserController::class, 'show'])->name('hotspot.users.show');
-    Route::get('/hotspot/users/{id}/edit', [HotspotUserController::class, 'edit'])->name('hotspot.users.edit');
-    Route::put('/hotspot/users/{id}', [HotspotUserController::class, 'update'])->name('hotspot.users.update');
-    Route::delete('/hotspot/users/{id}', [HotspotUserController::class, 'destroy'])->name('hotspot.users.destroy');
-    Route::get('/hotspot/users/{id}/sessions', [HotspotUserController::class, 'sessions'])->name('hotspot.users.sessions');
+    // Tickets
+    Route::resource('tickets', TicketController::class);
+    Route::get('/tickets/{ticket}/download-attachment', [TicketController::class, 'downloadAttachment'])->name('tickets.download-attachment');
+
+    Route::middleware(['auth'])->prefix('hotspot')->name('hotspot.')->group(function () {
+
+        // Hotspot Users 
+        Route::resource('users', HotspotUserController::class)->names('users');
+        Route::get('users/{id}/sessions', [HotspotUserController::class, 'sessions'])->name('users.sessions');
+    
+        // Hotspot Profiles
+        Route::get('profiles', [HotspotProfileController::class, 'index'])->name('profiles.index');
+        Route::post('profiles', [HotspotProfileController::class, 'store'])->name('profiles.store');
+        Route::put('profiles/{id}', [HotspotProfileController::class, 'update'])->name('profiles.update');
+        Route::delete('profiles/{id}', [HotspotProfileController::class, 'destroy'])->name('profiles.destroy');
+    });
 });
