@@ -14,85 +14,24 @@ class HotspotProfileController extends Controller
     public function index()
     {
         $routers = Router::all();
-        $allProfiles = [];
-
-        foreach ($routers as $router) {
-            try {
-                $client = new Client([
-                    'host' => $router->ip_address,
-                    'user' => $router->username,
-                    'pass' => $router->password,
-                    'port' => $router->port ?? 8728,
-                ]);
-
-                $query = new Query('/ip/hotspot/user/profile/print');
-                $mikrotikProfiles = $client->query($query)->read();
-
-                if (empty($mikrotikProfiles)) {
-                    continue;
-                }
-
-                $existingProfiles = HotspotProfile::where('router_id', $router->id)
-                    ->get();
-
-                $mikrotikProfileIds = [];
-                foreach ($mikrotikProfiles as $profile) {
-                    if (empty($profile['name'])) {
-                        continue;
-                    }
-
-                    $existingProfile = $existingProfiles->where('mikrotik_id', $profile['.id'])->first();
-
-                    $hotspotProfile = HotspotProfile::updateOrCreate(
-                        [
-                            'mikrotik_id' => $profile['.id'],
-                            'router_id' => $router->id,
-                        ],
-                        [
-                            'name' => $profile['name'],
-                            'rate_limit' => $profile['rate-limit'] ?? null,
-                            'shared_users' => $profile['shared-users'] ?? null,
-                            'mac_cookie_timeout' => $profile['mac-cookie-timeout'] ?? null,
-                            'keepalive_timeout' => $profile['keepalive-timeout'] ?? null,
-                            'session_timeout' => $profile['session-timeout'] ?? null,
-                        ]
-                    );
-
-                    $mikrotikProfileIds[] = $profile['.id'];
-                    $allProfiles[] = $hotspotProfile;
-                }
-
-                $profilesToDelete = $existingProfiles
-                    ->whereNotIn('mikrotik_id', $mikrotikProfileIds)
-                    ->pluck('mikrotik_id')
-                    ->toArray();
-
-                if (!empty($profilesToDelete)) {
-                    HotspotProfile::where('router_id', $router->id)
-                        ->whereIn('mikrotik_id', $profilesToDelete)
-                        ->delete();
-                }
-
-            } catch (\Exception $e) {
-                continue;
-            }
-        }
-
-        $hotspotProfiles = collect($allProfiles)->map(function ($profile) {
-            return [
-                'id' => $profile->id,
-                'mikrotik_id' => $profile->mikrotik_id,
-                'name' => $profile->name,
-                'rate_limit' => $profile->rate_limit,
-                'shared_users' => $profile->shared_users,
-                'mac_cookie_timeout' => $profile->mac_cookie_timeout,
-                'keepalive_timeout' => $profile->keepalive_timeout,
-                'session_timeout' => $profile->session_timeout,
-                'price' => $profile->price,
-                'router_id' => $profile->router_id,
-                'router_name' => $profile->router->name,
-            ];
-        })->toArray();
+        $hotspotProfiles = HotspotProfile::with('router')
+            ->get()
+            ->map(function ($profile) {
+                return [
+                    'id' => $profile->id,
+                    'mikrotik_id' => $profile->mikrotik_id,
+                    'name' => $profile->name,
+                    'rate_limit' => $profile->rate_limit,
+                    'shared_users' => $profile->shared_users,
+                    'mac_cookie_timeout' => $profile->mac_cookie_timeout,
+                    'keepalive_timeout' => $profile->keepalive_timeout,
+                    'session_timeout' => $profile->session_timeout,
+                    'price' => $profile->price,
+                    'router_id' => $profile->router_id,
+                    'router_name' => $profile->router->name,
+                ];
+            })
+            ->toArray();
 
         return Inertia::render('Packages/Index', [
             'hotspotProfiles' => $hotspotProfiles,

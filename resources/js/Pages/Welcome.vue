@@ -1,6 +1,11 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { ref, computed } from 'vue';
+
+defineOptions({
+    layout: AppLayout,
+});
 
 // Define props
 const props = defineProps({
@@ -18,216 +23,291 @@ const props = defineProps({
     },
 });
 
-// Debug hotspotProfiles
-console.log('hotspotProfiles:', props.hotspotProfiles);
+// Package categories
+const categories = ref([
+    { id: 'daily', name: 'Daily Packages', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { id: 'monthly', name: 'Monthly Packages', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+    { id: 'session', name: 'Session Packages', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+]);
+
+// Selected category
+const selectedCategory = ref('daily');
 
 // Fallback data for testing card display
 const fallbackProfiles = [
-    { id: 1, name: 'Basic', price: '100', rate_limit: '10M/10M', session_timeout: '1d', shared_users: 1 },
-    { id: 2, name: 'Pro', price: '200', rate_limit: '20M/20M', session_timeout: '7d', shared_users: 2 },
-    { id: 3, name: 'Premium', price: '300', rate_limit: '50M/50M', session_timeout: '30d', shared_users: 3 },
+    { 
+        id: 1, 
+        name: 'Basic Daily', 
+        price: '100', 
+        rate_limit: '10M/10M', 
+        session_timeout: '1d', 
+        shared_users: 1,
+        category: 'daily',
+        features: ['10Mbps Download', '10Mbps Upload', '24 Hours Access', '1 Device']
+    },
+    { 
+        id: 2, 
+        name: 'Premium Daily', 
+        price: '200', 
+        rate_limit: '20M/20M', 
+        session_timeout: '1d', 
+        shared_users: 2,
+        category: 'daily',
+        features: ['20Mbps Download', '20Mbps Upload', '24 Hours Access', '2 Devices']
+    },
+    { 
+        id: 3, 
+        name: 'Basic Monthly', 
+        price: '2000', 
+        rate_limit: '10M/10M', 
+        session_timeout: '30d', 
+        shared_users: 1,
+        category: 'monthly',
+        features: ['10Mbps Download', '10Mbps Upload', '30 Days Access', '1 Device']
+    },
+    { 
+        id: 4, 
+        name: 'Premium Monthly', 
+        price: '4000', 
+        rate_limit: '20M/20M', 
+        session_timeout: '30d', 
+        shared_users: 2,
+        category: 'monthly',
+        features: ['20Mbps Download', '20Mbps Upload', '30 Days Access', '2 Devices']
+    },
+    { 
+        id: 5, 
+        name: '2 Hour Session', 
+        price: '50', 
+        rate_limit: '10M/10M', 
+        session_timeout: '2h', 
+        shared_users: 1,
+        category: 'session',
+        features: ['10Mbps Download', '10Mbps Upload', '2 Hours Access', '1 Device']
+    },
+    { 
+        id: 6, 
+        name: '4 Hour Session', 
+        price: '80', 
+        rate_limit: '10M/10M', 
+        session_timeout: '4h', 
+        shared_users: 1,
+        category: 'session',
+        features: ['10Mbps Download', '10Mbps Upload', '4 Hours Access', '1 Device']
+    },
 ];
 
-// Sort profiles by price (lowest to highest)
-const sortedProfiles = computed(() => {
+// Filter profiles by selected category
+const filteredProfiles = computed(() => {
     const profiles = props.hotspotProfiles.length > 0 ? props.hotspotProfiles : fallbackProfiles;
-    return [...profiles].sort((a, b) => {
-        const priceA = a.price ? parseFloat(a.price) : 0;
-        const priceB = b.price ? parseFloat(b.price) : 0;
-        return priceA - priceB;
-    });
+    return profiles
+        .filter(profile => profile.category === selectedCategory.value)
+        .sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
 });
-
-// Format speed for display
-const formatSpeed = (rateLimit) => {
-    if (!rateLimit) return 'Unlimited';
-    return rateLimit.replace('/', ' / ');
-};
-
-// Format time for display
-const formatTime = (time) => {
-    if (!time) return 'Unlimited';
-    return time
-        .replace('d', ' days ')
-        .replace('h', ' hours ')
-        .replace('m', ' minutes')
-        .trim();
-};
-
-// Selected package for login
-const selectedPackage = ref(null);
-
-// Form data
-const username = ref('');
-const password = ref('');
-const loginError = ref('');
-
-const selectPackage = (profile) => {
-    selectedPackage.value = profile;
-};
-
-const login = () => {
-    if (!username.value || !password.value) {
-        loginError.value = 'Please enter both username and password';
-        return;
-    }
-    if (!selectedPackage.value) {
-        loginError.value = 'Please select a package';
-        return;
-    }
-    loginError.value = '';
-    alert(`Logging in with username: ${username.value} and package: ${selectedPackage.value.name}`);
-};
 </script>
 
 <template>
-    <Head title="WiFi Hotspot Portal" />
+    <Head title="Welcome to JTG Networks" />
 
-    <div class="min-h-screen bg-stone-50 dark:bg-slate-900 text-gray-900 dark:text-gray-100">
-        <!-- Header -->
-        <header class="sticky top-0 z-10 container mx-auto px-4 py-4 flex justify-between items-center bg-white/80 dark:bg-slate-800/80 backdrop-blur-md shadow-sm">
-            <div class="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mr-3 text-amber-500 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
-                    <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
-                    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-                    <line x1="12" y1="20" x2="12.01" y2="20"></line>
-                </svg>
-                <h1 class="text-2xl font-bold">JTG Networks</h1>
-            </div>
-            <nav class="flex items-center space-x-6">
-                <Link v-if="props.canLogin" :href="route('login')" class="text-gray-600 dark:text-gray-300 hover:text-amber-500 dark:hover:text-amber-400 transition duration-300 font-medium">Login</Link>
-                <Link v-if="props.canRegister" :href="route('register')" class="bg-emerald-600 dark:bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 dark:hover:bg-emerald-600 transition duration-300 font-medium">Register</Link>
-                <a href="#" class="text-gray-600 dark:text-gray-300 hover:text-amber-500 dark:hover:text-amber-400 transition duration-300">Help</a>
-                <a href="#" class="text-gray-600 dark:text-gray-300 hover:text-amber-500 dark:hover:text-amber-400 transition duration-300">About</a>
-            </nav>
-        </header>
-
+    <div class="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 dark:from-slate-900 dark:to-slate-800">
         <!-- Hero Section -->
-        <section class="container mx-auto px-4 py-16 text-center bg-gradient-to-b from-stone-100 to-stone-50 dark:from-slate-800 dark:to-slate-900">
-            <h2 class="text-4xl md:text-5xl font-extrabold mb-4 text-gray-900 dark:text-gray-100">Blazing-Fast WiFi Awaits</h2>
-            <p class="text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed text-gray-600 dark:text-gray-300">
-                Connect with JTG Networks' premium internet packages. Choose your plan and experience seamless connectivity.
-            </p>
+        <section class="relative py-20 overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-emerald-500/10 dark:from-amber-500/5 dark:to-emerald-500/5"></div>
+            <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h1 class="text-4xl md:text-6xl font-extrabold text-gray-900 dark:text-white mb-6 animate-fade-in">
+                        Welcome to JTG Networks
+                    </h1>
+                    <p class="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8 animate-fade-in-up">
+                        Experience lightning-fast internet with our premium packages. Choose your perfect plan and stay connected.
+                    </p>
+                    <div class="flex justify-center space-x-4">
+                        <a 
+                            v-if="props.canLogin" 
+                            :href="route('login')" 
+                            class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-amber-500 hover:bg-amber-600 transition duration-300"
+                        >
+                            Login
+                        </a>
+                        <a 
+                            v-if="props.canRegister" 
+                            :href="route('register')" 
+                            class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-amber-500 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 transition duration-300"
+                        >
+                            Register
+                        </a>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <!-- Package Selection Section -->
-        <section class="container mx-auto px-4 py-12">
-            <h3 class="text-3xl font-bold mb-8 text-center text-gray-900 dark:text-gray-100">Explore Our Packages</h3>
-
-            <!-- Packages Grid -->
-            <div v-if="sortedProfiles.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div 
-                    v-for="profile in sortedProfiles" 
-                    :key="profile.id"
-                    class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-xl shadow-lg overflow-hidden text-emerald-500 dark:text-emerald-400 transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer"
-                    :class="{ 'ring-4 ring-black-500 dark:ring-white-400': selectedPackage && selectedPackage.id === profile.id }"
-                    @click="selectPackage(profile)"
-                >
-                    <div class="p-6">
-                        <h4 class="text-xl font-semibold mb-3 text-gray-900 dark:text-gray-100">{{ profile.name }}</h4>
-                        <div class="mb-4">
-                            <span class="text-3xl font-bold text-grey-500 dark:text-grey-400">
-                                {{ profile.price ? 'Kes ' + profile.price : 'Free' }}
-                            </span>
+        <!-- Features Section -->
+        <section class="py-20 bg-white dark:bg-gray-800">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="text-center p-6 rounded-xl bg-amber-50 dark:bg-amber-900/30">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
                         </div>
-                        <ul class="space-y-3 mb-6">
-                            <li class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-emerald-500 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="text-gray-600 dark:text-gray-300">Speed: {{ formatSpeed(profile.rate_limit) }}</span>
-                            </li>
-                            <li class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-emerald-500 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="text-gray-600 dark:text-gray-300">Time Limit: {{ formatTime(profile.session_timeout) }}</span>
-                            </li>
-                            <li v-if="profile.shared_users" class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-emerald-500 dark:text-emerald-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="text-gray-600 dark:text-gray-300">{{ profile.shared_users }} Simultaneous Devices</span>
-                            </li>
-                        </ul>
-                        <button 
-                            class="w-full py-2 px-4 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition duration-300 font-medium"
-                            @click.stop="selectPackage(profile)"
-                        >
-                            Select Package
-                        </button>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Lightning Fast</h3>
+                        <p class="text-gray-600 dark:text-gray-300">Experience blazing-fast internet speeds with our optimized network infrastructure.</p>
+                    </div>
+                    <div class="text-center p-6 rounded-xl bg-amber-50 dark:bg-amber-900/30">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                </div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Secure Connection</h3>
+                        <p class="text-gray-600 dark:text-gray-300">Your data is protected with enterprise-grade security measures.</p>
+                    </div>
+                    <div class="text-center p-6 rounded-xl bg-amber-50 dark:bg-amber-900/30">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">24/7 Support</h3>
+                        <p class="text-gray-600 dark:text-gray-300">Our dedicated support team is always ready to help you with any issues.</p>
                     </div>
                 </div>
-            </div>
-
-            <!-- No Packages Message -->
-            <div v-else class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-xl shadow-lg p-8 text-center animate-pulse">
-                <p class="text-xl text-gray-600 dark:text-gray-300">No packages available at the moment. Please try again later.</p>
             </div>
         </section>
 
-        <!-- Login Form -->
-        <section class="container mx-auto px-4 py-12">
-            <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl shadow-lg p-8 max-w-md mx-auto transition-all duration-300 hover:shadow-xl">
-                <h3 class="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-gray-100">Login to Connect</h3>
-                <div v-if="selectedPackage" class="mb-4 p-3 bg-amber-100 dark:bg-amber-900/50 rounded-lg text-center">
-                    Selected Package: <strong>{{ selectedPackage.name }}</strong>
-                    <div v-if="selectedPackage.price" class="font-semibold text-amber-500 dark:text-amber-400">
-                        Kes {{ selectedPackage.price }}
+        <!-- Package Categories -->
+        <section class="py-20 bg-gray-50 dark:bg-gray-900">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-extrabold text-gray-900 dark:text-white mb-4">Choose Your Package</h2>
+                    <p class="text-xl text-gray-600 dark:text-gray-300">Select the perfect plan for your needs</p>
                     </div>
-                </div>
-                <form @submit.prevent="login" class="space-y-4">
-                    <div>
-                        <label for="username" class="block mb-1 font-medium text-gray-700 dark:text-gray-200">Username</label>
-                        <input 
-                            id="username" 
-                            v-model="username" 
-                            type="text" 
-                            class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:outline-none transition duration-300"
-                            placeholder="Enter your username"
-                        >
-                    </div>
-                    <div>
-                        <label for="password" class="block mb-1 font-medium text-gray-700 dark:text-gray-200">Password</label>
-                        <input 
-                            id="password" 
-                            v-model="password" 
-                            type="password" 
-                            class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 focus:border-amber-500 dark:focus:border-amber-400 focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:outline-none transition duration-300"
-                            placeholder="Enter your password"
-                        >
-                    </div>
-                    <div v-if="loginError" class="p-3 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-lg text-center transition-all duration-300 animate-pulse">
-                        {{ loginError }}
-                    </div>
+
+                <div class="flex justify-center space-x-4 mb-12">
                     <button 
-                        type="submit" 
-                        class="w-full py-3 px-4 bg-emerald-600 dark:bg-emerald-500 text-white rounded-lg hover:bg-emerald-700 dark:hover:bg-emerald-600 transition duration-300 font-semibold"
+                        v-for="category in categories"
+                        :key="category.id"
+                        @click="selectedCategory = category.id"
+                        class="flex items-center px-6 py-3 rounded-lg transition-all duration-300"
+                        :class="[
+                            selectedCategory === category.id
+                                ? 'bg-amber-500 text-white shadow-lg'
+                                : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-slate-700'
+                        ]"
                     >
-                        Connect Now
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="category.icon" />
+                        </svg>
+                        {{ category.name }}
                     </button>
-                </form>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div 
+                        v-for="profile in filteredProfiles" 
+                        :key="profile.id"
+                        class="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105"
+                    >
+                        <div class="p-6">
+                            <div class="flex justify-between items-start mb-4">
+                                <h4 class="text-xl font-semibold text-gray-900 dark:text-white">{{ profile.name }}</h4>
+                                <span class="px-3 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full text-sm font-medium">
+                                    {{ profile.category }}
+                                </span>
+                            </div>
+                            <div class="mb-6">
+                                <span class="text-3xl font-bold text-gray-900 dark:text-white">
+                                    Kes {{ profile.price }}
+                                </span>
+                            </div>
+                            <ul class="space-y-3 mb-6">
+                                <li v-for="feature in profile.features" :key="feature" class="flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span class="text-gray-600 dark:text-gray-300">{{ feature }}</span>
+                                </li>
+                            </ul>
+                            <a 
+                                v-if="props.canLogin"
+                                :href="route('login')"
+                                class="block w-full py-3 px-4 bg-amber-500 text-white text-center rounded-lg hover:bg-amber-600 transition duration-300 font-medium"
+                            >
+                                Get Started
+                            </a>
+                            <a 
+                                v-else
+                                :href="route('register')"
+                                class="block w-full py-3 px-4 bg-amber-500 text-white text-center rounded-lg hover:bg-amber-600 transition duration-300 font-medium"
+                            >
+                                Sign Up Now
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <!-- Footer -->
-        <footer class="container mx-auto px-4 py-8 text-center text-gray-600 dark:text-gray-400 bg-stone-100 dark:bg-slate-800">
-            <p>© {{ new Date().getFullYear() }} JTG Networks. All rights reserved.</p>
-            <p class="mt-2">For assistance, contact <a href="mailto:support@jtgnetworks.com" class="text-amber-500 dark:text-amber-400 hover:underline">support@jtgnetworks.com</a></p>
-        </footer>
+        <!-- CTA Section -->
+        <section class="py-20 bg-amber-500">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h2 class="text-3xl font-extrabold text-white mb-4">Ready to Get Started?</h2>
+                <p class="text-xl text-amber-100 mb-8">Join thousands of satisfied customers enjoying our premium internet service.</p>
+                <div class="flex justify-center space-x-4">
+                    <a 
+                        v-if="props.canLogin"
+                        :href="route('login')"
+                        class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-amber-500 bg-white hover:bg-amber-50 transition duration-300"
+                    >
+                        Login to Your Account
+                    </a>
+                    <a 
+                        v-if="props.canRegister"
+                        :href="route('register')"
+                        class="inline-flex items-center px-6 py-3 border-2 border-white text-base font-medium rounded-md text-white hover:bg-amber-600 transition duration-300"
+                    >
+                        Create New Account
+                    </a>
+                </div>
+            </div>
+        </section>
     </div>
 </template>
 
 <style scoped>
-/* Card transition animations */
-.card-enter-active,
-.card-leave-active {
-    transition: all 0.5s ease;
+/* Animations */
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
-.card-enter-from,
-.card-leave-to {
+
+@keyframes fade-in-up {
+    from {
     opacity: 0;
     transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 1s ease-out;
+}
+
+.animate-fade-in-up {
+    animation: fade-in-up 1s ease-out;
+}
+
+/* Card hover effects */
+.package-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.package-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 </style>

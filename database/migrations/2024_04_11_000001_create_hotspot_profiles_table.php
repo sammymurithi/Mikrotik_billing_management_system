@@ -13,6 +13,7 @@ class CreateHotspotProfilesTable extends Migration
             $table->string('mikrotik_id')->nullable();
             $table->foreignId('router_id')->constrained()->onDelete('cascade');
             $table->string('name');
+            $table->string('category')->default('standard');
             $table->string('rate_limit')->nullable();
             $table->decimal('price', 10, 2)->nullable()->default(0.00);
             $table->string('shared_users')->nullable();

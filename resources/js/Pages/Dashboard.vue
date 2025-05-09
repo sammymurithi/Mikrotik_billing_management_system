@@ -18,6 +18,12 @@
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Router</h3>
                 <p class="text-gray-600 dark:text-gray-400">{{ router.router_name }}</p>
                 <p class="text-sm text-gray-500 dark:text-gray-500">{{ router.board_name }} (v{{ router.version }})</p>
+                <div class="mt-3 space-y-2">
+                  <button @click="restartRouter" class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors duration-200 shadow-sm">
+                    <ArrowPathIcon class="w-5 h-5 mr-2" />
+                    Restart Router
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -213,7 +219,36 @@
       CheckCircleIcon,
       Filler
     },
-    props: ['router', 'error'],
+    props: {
+      router: {
+        type: Object,
+        default: null
+      },
+      error: {
+        type: String,
+        default: null
+      },
+      systemStats: {
+        type: Object,
+        required: true
+      },
+      hotspotStats: {
+        type: Object,
+        required: true
+      },
+      routerStats: {
+        type: Object,
+        required: true
+      },
+      recentSessions: {
+        type: Array,
+        required: true
+      },
+      recentUsers: {
+        type: Array,
+        required: true
+      }
+    },
     computed: {
       trafficChartData() {
         if (!this.router || !this.router.traffic_history) {
@@ -346,6 +381,24 @@
         if (mbps >= 1) return `${mbps.toFixed(2)} Mbps`;
         const kbps = bits / 1000;
         return `${kbps.toFixed(2)} Kbps`;
+      },
+      async restartRouter() {
+        if (!confirm('Are you sure you want to restart the router? This will temporarily disconnect all users.')) {
+          return;
+        }
+        
+        try {
+          const response = await axios.post(`/routers/${this.router.id}/restart`);
+          if (response.data.success) {
+            this.$page.props.flash.success = 'Router restart initiated successfully';
+            // Refresh router data after a short delay
+            setTimeout(() => {
+              window.location.reload();
+            }, 5000);
+          }
+        } catch (error) {
+          this.$page.props.flash.error = 'Failed to restart router: ' + (error.response?.data?.message || error.message);
+        }
       },
     },
   };

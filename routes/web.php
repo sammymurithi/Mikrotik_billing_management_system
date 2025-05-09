@@ -13,6 +13,11 @@ use Inertia\Inertia;
 // Use CaptivePortalController for the homepage
 use App\Http\Controllers\CaptivePortalController;
 
+// Router Configuration Controller
+use App\Http\Controllers\RouterConfigurationController;
+
+use App\Http\Controllers\VoucherController;
+
 Route::get('/', [CaptivePortalController::class, 'index']);
 
 Route::middleware([
@@ -28,6 +33,14 @@ Route::middleware([
     // Routers
     Route::resource('routers', RouterController::class);
     Route::get('/routers/{id}/check-connection', [RouterController::class, 'checkConnection'])->name('routers.check-connection');
+    Route::post('/routers/{id}/restart', [RouterController::class, 'restart'])->name('routers.restart');
+    Route::post('/routers/{id}/reset-configuration', [RouterController::class, 'resetConfiguration'])->name('routers.reset-configuration');
+    
+    // Interface Management
+    Route::post('/routers/{id}/interfaces', [RouterController::class, 'createInterface'])->name('routers.interfaces.create');
+    Route::put('/routers/{id}/interfaces/{interfaceId}', [RouterController::class, 'updateInterface'])->name('routers.interfaces.update');
+    Route::delete('/routers/{id}/interfaces/{interfaceId}', [RouterController::class, 'deleteInterface'])->name('routers.interfaces.delete');
+    Route::post('/routers/{id}/interfaces/{interfaceId}/toggle', [RouterController::class, 'toggleInterfaceStatus'])->name('routers.interfaces.toggle');
 
     // Tickets
     Route::resource('tickets', TicketController::class);
@@ -45,4 +58,27 @@ Route::middleware([
         Route::put('profiles/{id}', [HotspotProfileController::class, 'update'])->name('profiles.update');
         Route::delete('profiles/{id}', [HotspotProfileController::class, 'destroy'])->name('profiles.destroy');
     });
+
+    // Router Configuration Routes
+    // Route::get('/routers/{router}/configure', [RouterConfigurationController::class, 'show'])
+    //     ->name('routers.configure.show');
+    // Route::get('/routers/{router}/configure/{tab}', [RouterConfigurationController::class, 'show'])
+    //     ->name('routers.configure.get');
+    // Route::post('/routers/{router}/configure/{tab}', [RouterConfigurationController::class, 'configure'])
+    //     ->name('routers.configure');
+
+    Route::middleware(['auth', 'verified'])->group(function () {
+        Route::resource('vouchers', VoucherController::class)->only(['index', 'store', 'destroy']);
+        Route::post('vouchers/{voucher}/disable', [VoucherController::class, 'disable'])->name('vouchers.disable');
+        Route::post('vouchers/batch-delete', [VoucherController::class, 'batchDelete'])->name('vouchers.batch-delete');
+        Route::post('vouchers/batch-disable', [VoucherController::class, 'batchDisable'])->name('vouchers.batch-disable');
+    });
+
+    // Captive Portal Routes
+    Route::get('/', [CaptivePortalController::class, 'index'])->name('welcome');
+    Route::get('/test-auth', function() {
+        \Log::info('Test route accessed');
+        return response()->json(['message' => 'Test route working']);
+    });
+    Route::post('/authenticate', [CaptivePortalController::class, 'authenticate'])->name('authenticate');
 });

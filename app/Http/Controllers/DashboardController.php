@@ -88,6 +88,12 @@ class DashboardController extends Controller
             'routerStats' => $routerStats,
             'recentSessions' => $recentSessions,
             'recentUsers' => $recentUsers,
+            'router' => Router::first() ? [
+                'id' => Router::first()->id,
+                'router_name' => Router::first()->name,
+                'board_name' => Router::first()->board_name ?? 'Unknown',
+                'version' => Router::first()->version ?? 'Unknown',
+            ] : null,
         ];
 
         // Cache the complete response
@@ -108,6 +114,7 @@ class DashboardController extends Controller
                 'cpu_history' => [],
                 'memory_history' => [],
                 'traffic_history' => [],
+                'router' => null
             ];
         }
 
@@ -122,6 +129,14 @@ class DashboardController extends Controller
             // Get system resources with a single query
             $query = (new Query('/system/resource/print'));
             $resources = $client->query($query)->read()[0];
+
+            // Get system identity
+            $query = (new Query('/system/identity/print'));
+            $identity = $client->query($query)->read()[0];
+
+            // Get system routerboard
+            $query = (new Query('/system/routerboard/print'));
+            $routerboard = $client->query($query)->read()[0];
 
             // Calculate memory usage percentage
             $totalMemory = (int)($resources['total-memory'] ?? 0);
@@ -164,6 +179,28 @@ class DashboardController extends Controller
                 'cpu_history' => array_slice($cpuHistory, -10),
                 'memory_history' => array_slice($memoryHistory, -10),
                 'traffic_history' => array_slice($trafficHistory, -10),
+                'router' => [
+                    'id' => $router->id,
+                    'router_name' => $identity['name'] ?? $router->name,
+                    'board_name' => $routerboard['model'] ?? 'Unknown',
+                    'version' => $routerboard['current-firmware'] ?? 'Unknown',
+                    'cpu' => $resources['cpu'] ?? 'Unknown',
+                    'cpu_frequency' => $resources['cpu-frequency'] ?? 'Unknown',
+                    'free_memory' => $freeMemory,
+                    'total_memory' => $totalMemory,
+                    'free_hdd_space' => $freeHddSpace,
+                    'total_hdd_space' => $totalHddSpace,
+                    'uptime' => $resources['uptime'] ?? '0s',
+                    'downtime' => $resources['downtime'] ?? '0s',
+                    'cpu_load' => $resources['cpu-load'] ?? '0',
+                    'tx_rate' => $resources['tx-bits-per-second'] ?? 0,
+                    'rx_rate' => $resources['rx-bits-per-second'] ?? 0,
+                    'active_hotspot_users' => $resources['active-hotspot-users'] ?? 0,
+                    'total_hotspot_users' => $resources['total-hotspot-users'] ?? 0,
+                    'update_available' => $routerboard['upgrade-firmware'] ?? false,
+                    'latest_version' => $routerboard['new-firmware'] ?? null,
+                    'traffic_history' => array_slice($trafficHistory, -24) // Last 24 hours
+                ]
             ];
         } catch (\Exception $e) {
             \Log::error('Failed to get system stats: ' . $e->getMessage());
@@ -175,6 +212,7 @@ class DashboardController extends Controller
                 'cpu_history' => [],
                 'memory_history' => [],
                 'traffic_history' => [],
+                'router' => null
             ];
         }
     }

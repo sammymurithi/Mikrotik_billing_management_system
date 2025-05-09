@@ -10,6 +10,7 @@ class HotspotProfile extends Model
         'mikrotik_id',
         'router_id',
         'name',
+        'category',
         'rate_limit',
         'shared_users',
         'mac_cookie_timeout',

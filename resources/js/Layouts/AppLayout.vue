@@ -79,8 +79,8 @@ const logout = () => {
 
         <Banner />
 
-        <!-- Sidebar -->
-        <div class="fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-lg overflow-y-auto">
+        <!-- Sidebar - Only show for authenticated users -->
+        <div v-if="$page.props.auth.user" class="fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-lg overflow-y-auto">
             <!-- Logo -->
             <div class="flex items-center justify-center h-16 border-b border-gray-200 dark:border-gray-700">
                 <Link :href="route('dashboard')" class="flex items-center">
@@ -157,12 +157,25 @@ const logout = () => {
                 </Link>
                 
                 <Link 
+                    :href="route('vouchers.index')" 
+                    class="mt-1 group flex items-center px-4 py-3 text-base font-medium rounded-md transition-colors"
+                    :class="route().current('vouchers.*') ? 'bg-gray-100 dark:bg-gray-700 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                >
+                    <font-awesome-icon 
+                        icon="fa-ticket-alt" 
+                        class="mr-3 h-5 w-5 flex-shrink-0"
+                        :class="route().current('vouchers.*') ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'"
+                    />
+                    Vouchers
+                </Link>
+                
+                <Link 
                     :href="route('tickets.index')" 
                     class="mt-1 group flex items-center px-4 py-3 text-base font-medium rounded-md transition-colors"
                     :class="route().current('tickets.*') ? 'bg-gray-100 dark:bg-gray-700 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
                 >
                     <font-awesome-icon 
-                        icon="fa-ticket-alt" 
+                        icon="fa-life-ring" 
                         class="mr-3 h-5 w-5 flex-shrink-0"
                         :class="route().current('tickets.*') ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'"
                     />
@@ -172,9 +185,9 @@ const logout = () => {
         </div>
         
         <!-- Main Content -->
-        <div class="flex-1 flex flex-col ml-64 bg-gray-100 dark:bg-gray-900">
-            <!-- Top Navigation Bar -->
-            <nav class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex-1 flex flex-col" :class="{ 'ml-64': $page.props.auth.user }">
+            <!-- Top Navigation Bar - Only show for authenticated users -->
+            <nav v-if="$page.props.auth.user" class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-end h-16">
                         <!-- Mobile menu button -->
@@ -300,8 +313,12 @@ const logout = () => {
                                 <font-awesome-icon icon="fa-boxes" class="mr-3 h-5 w-5" />
                                 Packages
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('tickets.index')" :active="route().current('tickets.*')" class="flex items-center">
+                            <ResponsiveNavLink :href="route('vouchers.index')" :active="route().current('vouchers.*')" class="flex items-center">
                                 <font-awesome-icon icon="fa-ticket-alt" class="mr-3 h-5 w-5" />
+                                Vouchers
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('tickets.index')" :active="route().current('tickets.*')" class="flex items-center">
+                                <font-awesome-icon icon="fa-life-ring" class="mr-3 h-5 w-5" />
                                 Support Tickets
                             </ResponsiveNavLink>
                         </div>
