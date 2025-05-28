@@ -29,6 +29,7 @@ class HotspotProfileController extends Controller
                     'price' => $profile->price,
                     'router_id' => $profile->router_id,
                     'router_name' => $profile->router->name,
+                    'synced' => $profile->synced,
                 ];
             })
             ->toArray();
@@ -107,25 +108,32 @@ class HotspotProfileController extends Controller
             }
 
             $response = $client->query($query)->read();
-
-            if (isset($response['after']['ret'])) {
-                $profile->mikrotik_id = $response['after']['ret'];
-                $profile->save();
-                return redirect()->route('hotspot.profiles.index')->with('success', 'Hotspot profile created successfully.');
+            
+            $query = new Query('/ip/hotspot/user/profile/print');
+            $query->where('name', $validated['name']);
+            $profileResponse = $client->query($query)->read();
+            
+            if (!empty($profileResponse)) {
+                $profile->update(['mikrotik_id' => $profileResponse[0]['.id']]);
             } else {
-                $profile->delete();
-                return back()->with('error', 'Failed to create profile in MikroTik.');
+                throw new \Exception('Profile created but could not be found afterwards');
             }
+
+            return redirect()->route('hotspot.profiles.index')
+                ->with('success', 'Hotspot profile created successfully.');
         } catch (\Exception $e) {
-            return back()->with('error', 'Failed to create hotspot profile: ' . $e->getMessage());
+            return redirect()->route('hotspot.profiles.index')
+                ->withErrors(['error' => 'Failed to create hotspot profile: ' . $e->getMessage()]);
         }
     }
 
     public function update(Request $request, $id)
     {
+        $hotspotProfile = HotspotProfile::findOrFail($id);
+        
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:hotspot_profiles,name,' . $id,
-            'rate_limit' => 'nullable|string',
+            'name' => 'required|string|max:255',
+            'rate_limit' => 'nullable|string|regex:/^\d+[KMG]\/\d+[KMG]$/',
             'shared_users' => 'nullable|string',
             'mac_cookie_timeout' => 'nullable|string',
             'keepalive_timeout' => 'nullable|string',
@@ -134,10 +142,19 @@ class HotspotProfileController extends Controller
             'router_id' => 'required|exists:routers,id',
         ]);
 
-        $hotspotProfile = HotspotProfile::findOrFail($id);
-        $oldRouter = $hotspotProfile->router;
+        if (isset($validated['rate_limit']) && !preg_match('/^\d+[KMG]\/\d+[KMG]$/', $validated['rate_limit'])) {
+            $validated['rate_limit'] = preg_replace('/^(\d+)\/(\d+)$/', '$1M/$2M', $validated['rate_limit']);
+        }
+
+        $price = isset($validated['price']) ? (float)$validated['price'] : 0.00;
+
+        $routerChanged = $hotspotProfile->router_id != $validated['router_id'];
+        $oldRouter = null;
         $newRouter = Router::findOrFail($validated['router_id']);
-        $routerChanged = $oldRouter->id !== $newRouter->id;
+
+        if ($routerChanged) {
+            $oldRouter = $hotspotProfile->router;
+        }
 
         $hotspotProfile->update([
             'name' => $validated['name'],
@@ -146,12 +163,12 @@ class HotspotProfileController extends Controller
             'mac_cookie_timeout' => $validated['mac_cookie_timeout'] ?? null,
             'keepalive_timeout' => $validated['keepalive_timeout'] ?? null,
             'session_timeout' => $validated['session_timeout'] ?? null,
-            'price' => $validated['price'] ?? null,
+            'price' => $price,
             'router_id' => $validated['router_id'],
         ]);
 
         try {
-            if ($routerChanged) {
+            if ($routerChanged && $oldRouter) {
                 $oldClient = new Client([
                     'host' => $oldRouter->ip_address,
                     'user' => $oldRouter->username,
@@ -159,15 +176,9 @@ class HotspotProfileController extends Controller
                     'port' => $oldRouter->port ?? 8728,
                 ]);
 
-                $query = new Query('/ip/hotspot/user/profile/print');
-                $query->where('.id', $hotspotProfile->mikrotik_id);
-                $response = $oldClient->query($query)->read();
-
-                if (!empty($response)) {
-                    $query = new Query('/ip/hotspot/user/profile/remove');
-                    $query->equal('.id', $hotspotProfile->mikrotik_id);
-                    $oldClient->query($query)->read();
-                }
+                $query = new Query('/ip/hotspot/user/profile/remove');
+                $query->equal('.id', $hotspotProfile->mikrotik_id);
+                $oldClient->query($query)->read();
             }
 
             $client = new Client([
@@ -225,39 +236,8 @@ class HotspotProfileController extends Controller
                 ->with('success', 'Hotspot profile updated successfully.');
         } catch (\Exception $e) {
             return redirect()->route('hotspot.profiles.index')
-                ->withErrors(['error' => 'Failed to update hotspot profile on router: ' . $e->getMessage()]);
+                ->withErrors(['error' => 'Failed to update hotspot profile: ' . $e->getMessage()]);
         }
-    }
-
-    private function formatTimeForMikrotik($timeStr)
-    {
-        if (empty($timeStr)) {
-            return null;
-        }
-
-        if (preg_match('/^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$/', $timeStr)) {
-            return $timeStr;
-        }
-
-        if (preg_match('/^(\d{2}):(\d{2}):(\d{2})$/', $timeStr, $matches)) {
-            $hours = (int)$matches[1];
-            $minutes = (int)$matches[2];
-            $seconds = (int)$matches[3];
-
-            $result = '';
-            if ($hours > 0) {
-                $result .= $hours . 'h';
-            }
-            if ($minutes > 0) {
-                $result .= $minutes . 'm';
-            }
-            if ($seconds > 0) {
-                $result .= $seconds . 's';
-            }
-            return $result;
-        }
-
-        return null;
     }
 
     public function destroy($id)
@@ -291,5 +271,129 @@ class HotspotProfileController extends Controller
 
         return redirect()->route('hotspot.profiles.index')
             ->with('success', 'Hotspot profile deleted successfully.');
+    }
+    
+    public function syncProfiles(Request $request)
+    {
+        $routerId = $request->input('router_id');
+        $syncAll = $request->input('sync_all', false);
+        $syncResults = [];
+        
+        try {
+            if ($routerId) {
+                // Sync profiles for a specific router
+                $routers = Router::where('id', $routerId)->get();
+            } else if ($syncAll) {
+                // Sync profiles for all routers
+                $routers = Router::all();
+            } else {
+                return response()->json(['error' => 'No router specified for sync'], 400);
+            }
+            
+            foreach ($routers as $router) {
+                $routerResult = $this->syncRouterProfiles($router);
+                $syncResults[$router->id] = $routerResult;
+            }
+            
+            return redirect()->route('hotspot.profiles.index')
+                ->with('success', 'Profiles synchronized successfully from MikroTik');
+        } catch (\Exception $e) {
+            return redirect()->route('hotspot.profiles.index')
+                ->withErrors(['error' => 'Failed to sync profiles: ' . $e->getMessage()]);
+        }
+    }
+    
+    private function syncRouterProfiles(Router $router)
+    {
+        $result = [
+            'router_name' => $router->name,
+            'added' => 0,
+            'updated' => 0,
+            'errors' => [],
+            'profiles' => []
+        ];
+        
+        try {
+            // Connect to router
+            $client = new Client([
+                'host' => $router->ip_address,
+                'user' => $router->username,
+                'pass' => $router->password,
+                'port' => $router->port ?? 8728,
+                'timeout' => 10,
+            ]);
+            
+            // Get all hotspot user profiles from MikroTik
+            $query = new Query('/ip/hotspot/user/profile/print');
+            $profiles = $client->query($query)->read();
+            
+            foreach ($profiles as $profile) {
+                // Skip the default profile
+                if ($profile['name'] === 'default') {
+                    continue;
+                }
+                
+                // Check if profile already exists in database
+                $existingProfile = HotspotProfile::where('name', $profile['name'])
+                    ->where('router_id', $router->id)
+                    ->first();
+                
+                $profileData = [
+                    'name' => $profile['name'],
+                    'mikrotik_id' => $profile['.id'] ?? null,
+                    'rate_limit' => $profile['rate-limit'] ?? null,
+                    'shared_users' => $profile['shared-users'] ?? null,
+                    'mac_cookie_timeout' => $profile['mac-cookie-timeout'] ?? null,
+                    'keepalive_timeout' => $profile['keepalive-timeout'] ?? null,
+                    'session_timeout' => $profile['session-timeout'] ?? null,
+                    'router_id' => $router->id,
+                    'synced' => true,
+                    'price' => 0.00, // Default price, can be updated later
+                ];
+                
+                if ($existingProfile) {
+                    // Update existing profile
+                    $existingProfile->update($profileData);
+                    $result['updated']++;
+                    $result['profiles'][] = [
+                        'name' => $profile['name'],
+                        'action' => 'updated'
+                    ];
+                } else {
+                    // Create new profile
+                    HotspotProfile::create($profileData);
+                    $result['added']++;
+                    $result['profiles'][] = [
+                        'name' => $profile['name'],
+                        'action' => 'added'
+                    ];
+                }
+            }
+            
+            return $result;
+        } catch (\Exception $e) {
+            $result['errors'][] = $e->getMessage();
+            return $result;
+        }
+    }
+    
+    private function formatTimeForMikrotik($timeString)
+    {
+        // If already in correct format, return as is
+        if (preg_match('/^\d+[smhdw]$/', $timeString)) {
+            return $timeString;
+        }
+
+        // Convert numeric values to seconds
+        if (is_numeric($timeString)) {
+            return $timeString . 's';
+        }
+
+        // Default to seconds if no unit specified
+        if (preg_match('/^\d+$/', $timeString)) {
+            return $timeString . 's';
+        }
+
+        return $timeString;
     }
 }

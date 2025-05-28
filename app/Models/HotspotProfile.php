@@ -17,6 +17,7 @@ class HotspotProfile extends Model
         'keepalive_timeout',
         'session_timeout',
         'price',
+        'synced',
     ];
 
     protected $casts = [

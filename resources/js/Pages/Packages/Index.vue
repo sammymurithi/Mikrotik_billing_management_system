@@ -149,12 +149,25 @@
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-lg font-medium">Manage Hotspot Profiles</h3>
-                            <button
-                                @click="showCreateModal = true"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 dark:bg-indigo-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 dark:hover:bg-indigo-400 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
-                            >
-                                Create New Profile
-                            </button>
+                            <div class="flex space-x-4">
+                                <button
+                                    @click="syncProfiles"
+                                    class="inline-flex items-center px-4 py-2 bg-emerald-600 dark:bg-emerald-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-emerald-700 dark:hover:bg-emerald-400 focus:bg-emerald-700 active:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
+                                    :disabled="syncLoading"
+                                >
+                                    <svg v-if="syncLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Sync from MikroTik
+                                </button>
+                                <button
+                                    @click="showCreateModal = true"
+                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 dark:bg-indigo-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 dark:hover:bg-indigo-400 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150"
+                                >
+                                    Create New Profile
+                                </button>
+                            </div>
                         </div>
 
                         <div class="overflow-x-auto">
@@ -162,26 +175,31 @@
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rate Limit</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Shared Users</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">MAC Cookie Timeout</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Keepalive Timeout</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Session Timeout</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Router</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Price</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     <tr v-for="hotspotPackage in hotspotProfiles" :key="hotspotPackage.id">
                                         <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.name }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.price ? 'Kes ' + parseFloat(hotspotPackage.price).toFixed(2) : '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.rate_limit }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.shared_users }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.mac_cookie_timeout }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.keepalive_timeout }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.session_timeout }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap">{{ hotspotPackage.router_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                                            {{ hotspotPackage.router_name }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                                            {{ hotspotPackage.price ? `$${hotspotPackage.price}` : '-' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full" :class="{ 
+                                                'bg-emerald-500 text-white dark:bg-emerald-600': hotspotPackage.synced,
+                                                'bg-amber-500 text-white dark:bg-amber-600': !hotspotPackage.synced
+                                            }">
+                                                {{ hotspotPackage.synced ? 'Synced' : 'Local Only' }}
+                                            </span>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <button
                                                 @click="startEdit(hotspotPackage)"
@@ -246,6 +264,7 @@ const props = defineProps({
 
 const showCreateModal = ref(false);
 const editMode = ref(false);
+const syncLoading = ref(false);
 const selectedProfile = ref(null);
 
 const form = useForm({
@@ -354,6 +373,24 @@ const deleteProfile = (id) => {
 
 const fetchProfiles = () => {
     router.reload();
+};
+
+const syncProfiles = () => {
+    syncLoading.value = true;
+    
+    // Get the selected router or sync all routers
+    const routerId = selectedProfile.value ? selectedProfile.value.router_id : null;
+    const syncAll = !routerId;
+    
+    router.post(route('hotspot.profiles.sync'), {
+        router_id: routerId,
+        sync_all: syncAll
+    }, {
+        preserveScroll: true,
+        onFinish: () => {
+            syncLoading.value = false;
+        }
+    });
 };
 
 // Remove the auto-hide alerts section since Banner component handles this

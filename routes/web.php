@@ -37,6 +37,7 @@ Route::middleware([
     Route::post('/routers/{id}/reset-configuration', [RouterController::class, 'resetConfiguration'])->name('routers.reset-configuration');
     
     // Interface Management
+    Route::get('/routers/{id}/interfaces', [RouterController::class, 'getInterfaces'])->name('routers.interfaces.index');
     Route::post('/routers/{id}/interfaces', [RouterController::class, 'createInterface'])->name('routers.interfaces.create');
     Route::put('/routers/{id}/interfaces/{interfaceId}', [RouterController::class, 'updateInterface'])->name('routers.interfaces.update');
     Route::delete('/routers/{id}/interfaces/{interfaceId}', [RouterController::class, 'deleteInterface'])->name('routers.interfaces.delete');
@@ -57,6 +58,7 @@ Route::middleware([
         Route::post('profiles', [HotspotProfileController::class, 'store'])->name('profiles.store');
         Route::put('profiles/{id}', [HotspotProfileController::class, 'update'])->name('profiles.update');
         Route::delete('profiles/{id}', [HotspotProfileController::class, 'destroy'])->name('profiles.destroy');
+        Route::post('profiles/sync', [HotspotProfileController::class, 'syncProfiles'])->name('profiles.sync');
     });
 
     // Router Configuration Routes
@@ -76,9 +78,10 @@ Route::middleware([
 
     // Captive Portal Routes
     Route::get('/', [CaptivePortalController::class, 'index'])->name('welcome');
-    Route::get('/test-auth', function() {
-        \Log::info('Test route accessed');
-        return response()->json(['message' => 'Test route working']);
-    });
-    Route::post('/authenticate', [CaptivePortalController::class, 'authenticate'])->name('authenticate');
+    
+    // Voucher Test Page
+    Route::get('/voucher-test', function() {
+        return Inertia::render('VoucherTest');
+    })->name('voucher.test');
+
 });

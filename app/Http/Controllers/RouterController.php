@@ -179,9 +179,36 @@ class RouterController extends Controller
 
         // Create router in database
         $router = Router::create($validated);
-
-        return redirect()->route('routers.index')
-            ->with('success', 'Router created successfully. Connected to: ' . $connectionTest['identity']);
+        
+        // Add debug logging
+        Log::debug('Router created successfully', [
+            'router_id' => $router->id,
+            'router_name' => $router->name,
+            'identity' => $connectionTest['identity']
+        ]);
+        
+        // For Inertia requests, return a proper Inertia response
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Router created successfully. Connected to: ' . $connectionTest['identity'],
+                'router' => $router
+            ]);
+        } else {
+            // Flash data to the session
+            session()->flash('success', 'Router created successfully. Connected to: ' . $connectionTest['identity']);
+            session()->flash('router_id', $router->id);
+            
+            // Return an Inertia response
+            return Inertia::render('Router/Partials/Create', [
+                'router' => $router,
+                'message' => 'Router created successfully. Connected to: ' . $connectionTest['identity'],
+                'flash' => [
+                    'success' => 'Router created successfully. Connected to: ' . $connectionTest['identity'],
+                    'router_id' => $router->id
+                ]
+            ]);
+        }
     }
 
     public function show($id)
@@ -321,6 +348,44 @@ class RouterController extends Controller
                 ? 'Connected to: ' . $connectionTest['identity']
                 : 'Failed to connect: ' . $connectionTest['error']
         ]);
+    }
+
+    /**
+     * Get all interfaces for a router
+     */
+    public function getInterfaces($id)
+    {
+        $router = Router::findOrFail($id);
+        
+        try {
+            $client = $this->getMikroTikClient($router);
+            $query = new Query('/interface/print');
+            $interfaces = $client->query($query)->read();
+            
+            // Format the interfaces for the frontend
+            $formattedInterfaces = [];
+            foreach ($interfaces as $interface) {
+                $formattedInterfaces[] = [
+                    'id' => $interface['.id'] ?? '',
+                    'name' => $interface['name'] ?? '',
+                    'type' => $interface['type'] ?? '',
+                    'mac_address' => $interface['mac-address'] ?? '',
+                    'running' => isset($interface['running']) ? ($interface['running'] === 'true') : false,
+                    'disabled' => isset($interface['disabled']) ? ($interface['disabled'] === 'true') : false,
+                    'comment' => $interface['comment'] ?? ''
+                ];
+            }
+            
+            return response()->json([
+                'success' => true,
+                'interfaces' => $formattedInterfaces
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch interfaces: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     public function createInterface(Request $request, $id)
