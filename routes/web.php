@@ -17,6 +17,7 @@ use App\Http\Controllers\CaptivePortalController;
 use App\Http\Controllers\RouterConfigurationController;
 
 use App\Http\Controllers\VoucherController;
+use App\Http\Controllers\PaymentController;
 
 Route::get('/', [CaptivePortalController::class, 'index']);
 
@@ -74,6 +75,15 @@ Route::middleware([
         Route::post('vouchers/{voucher}/disable', [VoucherController::class, 'disable'])->name('vouchers.disable');
         Route::post('vouchers/batch-delete', [VoucherController::class, 'batchDelete'])->name('vouchers.batch-delete');
         Route::post('vouchers/batch-disable', [VoucherController::class, 'batchDisable'])->name('vouchers.batch-disable');
+        
+        // Payment Routes
+        Route::get('/payments', function () {
+            return Inertia::render('Payments/Index');
+        })->name('payments.index');
+        
+        Route::get('/payments/transactions', [PaymentController::class, 'getTransactions'])->name('payments.transactions');
+        Route::get('/payments/stats', [PaymentController::class, 'getTransactionStats'])->name('payments.stats');
+        Route::post('/payments/initiate', [PaymentController::class, 'initiatePayment'])->name('payments.initiate');
     });
 
     // Captive Portal Routes

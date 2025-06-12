@@ -10,22 +10,22 @@ import Banner from '@/Components/Banner.vue';
 import StepperComponent from '@/Components/StepperComponent.vue';
 import { ref, reactive, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
+import StepNotification from '@/Components/StepNotification.vue';
 
 // Stepper configuration
 const steps = [
-    { title: 'Add Router', description: 'Basic router connection details' },
-    { title: 'Configure Interfaces', description: 'Setup network interfaces' },
-    { title: 'Assign IP Address', description: 'Configure IP addressing' },
-    { title: 'DNS Settings', description: 'Configure DNS servers' },
-    { title: 'Address Pool', description: 'Create IP address pools' },
-    { title: 'DHCP Client', description: 'Setup WAN DHCP client' },
-    { title: 'DHCP Server', description: 'Configure LAN DHCP server' },
-    { title: 'Firewall Rules', description: 'Setup basic firewall rules' },
-    { title: 'Hotspot', description: 'Configure captive portal' },
-    { title: 'Review', description: 'Review and apply configuration' }
+    { id: 'basic', title: 'Add Router', description: 'Basic router connection details' },
+    { id: 'interfaces', title: 'Configure Interfaces', description: 'Setup network interfaces' },
+    { id: 'ip', title: 'Assign IP Address', description: 'Configure IP addressing' },
+    { id: 'dns', title: 'DNS Settings', description: 'Configure DNS servers' },
+    { id: 'pool', title: 'Address Pool', description: 'Create IP address pools' },
+    { id: 'dhcp-client', title: 'DHCP Client', description: 'Setup WAN DHCP client' },
+    { id: 'dhcp-server', title: 'DHCP Server', description: 'Configure LAN DHCP server' },
+    { id: 'firewall', title: 'Firewall Rules', description: 'Setup basic firewall rules' },
+    { id: 'hotspot', title: 'Hotspot', description: 'Configure captive portal' }
 ];
 
-const currentStep = ref(0);
+const currentStepIndex = ref(0);
 const showPassword = ref(false);
 const nameInput = ref(null);
 const errorMessage = ref('');
@@ -98,7 +98,8 @@ const poolConfig = reactive({
 // Firewall configuration
 const firewallConfig = reactive({
     enableMasquerade: true,
-    enableBasicProtection: true
+    enableBasicProtection: true,
+    rules: []
 });
 
 // Hotspot configuration
@@ -116,6 +117,44 @@ const reviewConfig = reactive({
     applyChanges: true
 });
 
+const stepNotifications = ref({
+    basic: {
+        type: 'info',
+        title: 'Basic Configuration',
+        message: 'Configure the basic settings for your router including name, IP address, and credentials.'
+    },
+    interfaces: {
+        type: 'info',
+        title: 'Interface Configuration',
+        message: 'Configure your network interfaces. Make sure to set the correct roles for WAN and LAN interfaces.'
+    },
+    ip: {
+        type: 'info',
+        title: 'IP Configuration',
+        message: 'Set up IP addresses for your interfaces. The WAN interface should have a public IP or be configured for DHCP.'
+    },
+    dhcp: {
+        type: 'info',
+        title: 'DHCP Server',
+        message: 'Configure DHCP server settings for your LAN network. This will automatically assign IP addresses to connected devices.'
+    },
+    dns: {
+        type: 'info',
+        title: 'DNS Configuration',
+        message: 'Set up DNS servers and caching. This will help improve network performance and reliability.'
+    },
+    firewall: {
+        type: 'info',
+        title: 'Firewall Rules',
+        message: 'Configure basic firewall rules to protect your network. Make sure to allow necessary traffic while blocking potential threats.'
+    },
+    hotspot: {
+        type: 'info',
+        title: 'Hotspot Configuration',
+        message: 'Set up a captive portal for guest access. This will allow you to control and monitor guest network usage.'
+    }
+});
+
 // Load saved configuration from local storage
 const loadSavedConfig = () => {
     try {
@@ -131,8 +170,8 @@ const loadSavedConfig = () => {
             
             // Restore current step
             if (parsedConfig.currentStep !== undefined) {
-                currentStep.value = parsedConfig.currentStep;
-                console.log('Restored current step from local storage:', currentStep.value);
+                currentStepIndex.value = parsedConfig.currentStep;
+                console.log('Restored current step from local storage:', currentStepIndex.value);
             }
             
             // Restore router form data
@@ -166,7 +205,7 @@ const loadSavedConfig = () => {
             }
             
             // If we're past step 0 and have a router ID, fetch interfaces
-            if (currentStep.value > 0 && routerId.value) {
+            if (currentStepIndex.value > 0 && routerId.value) {
                 fetchRouterInterfaces();
             }
             
@@ -184,7 +223,7 @@ const saveConfigToLocalStorage = () => {
     try {
         const configToSave = {
             routerId: routerId.value,
-            currentStep: currentStep.value,
+            currentStep: currentStepIndex.value,
             routerForm: {
                 name: routerForm.name,
                 ip_address: routerForm.ip_address,
@@ -230,7 +269,7 @@ onMounted(() => {
 });
 
 // Watch for changes to save to local storage
-watch([currentStep, routerId, routerForm, interfaceConfig, ipAddressConfig], () => {
+watch([currentStepIndex, routerId, routerForm, interfaceConfig, ipAddressConfig], () => {
     saveConfigToLocalStorage();
 }, { deep: true });
 
@@ -464,111 +503,53 @@ const suggestLanIpAddress = (lanInterface) => {
 };
 
 // Submit router creation form
-const submitRouterForm = () => {
-    errorMessage.value = ''; // Clear any previous error message
-    isLoading.value = true;
-    
-    // Log the form data for debugging
-    console.log('Submitting router form with data:', {
-        name: routerForm.name,
-        ip_address: routerForm.ip_address,
-        username: routerForm.username,
-        password: '********', // Don't log the actual password
-        port: routerForm.port
-    });
-    
-    // Create a unique debug ID for this submission (similar to how we improved the voucher system)
-    const debugId = 'router-' + Date.now();
+const submitRouterForm = async () => {
+    const debugId = Math.random().toString(36).substring(7);
     console.log(`Router submission [${debugId}] started`);
-    
-    // Use Axios directly instead of Inertia form to have more control over the response
-    axios.post(route('routers.store'), {
-        name: routerForm.name,
-        ip_address: routerForm.ip_address,
-        username: routerForm.username,
-        password: routerForm.password,
-        port: routerForm.port
-    })
-    .then(response => {
+    isLoading.value = true;
+    errorMessage.value = '';
+    successMessage.value = '';
+
+    try {
+        const response = await axios.post(route('routers.store'), routerForm);
         console.log(`Router submission [${debugId}] successful:`, response.data);
         
-        try {
-            // Extract router ID from the response
-            if (response.data && response.data.router && response.data.router.id) {
-                routerId.value = response.data.router.id;
-            } else {
-                // Fallback to a hardcoded ID for testing
-                console.warn(`Router submission [${debugId}]: ID not found in response, using fallback ID`);
-                routerId.value = 1;
-            }
-            
-            console.log(`Router submission [${debugId}]: Router created successfully. ID:`, routerId.value);
-            
-            // Show success message
-            successMessage.value = response.data.message || 'Router added successfully!';
-            
-            // Fetch router interfaces
-            fetchRouterInterfaces();
-            
-            // Go to the next step
-            nextStep();
-        } catch (error) {
-            console.error(`Router submission [${debugId}]: Error processing success response:`, error);
-            errorMessage.value = 'Error processing response: ' + error.message;
-            isLoading.value = false;
+        // Extract router ID from the response
+        if (response.data && response.data.router && response.data.router.id) {
+            routerId.value = response.data.router.id;
+        } else {
+            console.warn(`Router submission [${debugId}]: ID not found in response`);
+            throw new Error('Router ID not found in response');
         }
-            
-            isLoading.value = false;
-        })
-        .catch(error => {
-            console.error(`Router submission [${debugId}]: Failed:`, error);
-            isLoading.value = false;
-            
-            // Handle different types of errors
-            if (error.response) {
-                // The request was made and the server responded with a status code
-                // that falls out of the range of 2xx
-                const responseData = error.response.data;
-                console.error(`Router submission [${debugId}]: Error response data:`, responseData);
-                
-                if (responseData.error) {
-                    // This is likely a connection error from the RouterController
-                    errorMessage.value = responseData.error;
-                    
-                    // Add more detailed error information for connection issues
-                    if (responseData.error.includes('Failed to connect')) {
-                        errorMessage.value = 'Failed to connect to router: The credentials or connection details are incorrect.';
-                    }
-                } else if (responseData.errors) {
-                    // Handle Laravel validation errors
-                    const validationErrors = responseData.errors;
-                    const firstErrorField = Object.keys(validationErrors)[0];
-                    const firstError = validationErrors[firstErrorField][0];
-                    errorMessage.value = `${firstErrorField}: ${firstError}`;
-                    
-                    // Update form errors for field-level validation messages
-                    Object.keys(validationErrors).forEach(field => {
-                        routerForm.errors[field] = validationErrors[field][0];
-                    });
-                } else if (responseData.message) {
-                    errorMessage.value = responseData.message;
-                } else {
-                    errorMessage.value = `Server error: ${error.response.status}`;
-                }
-            } else if (error.request) {
-                // The request was made but no response was received
-                errorMessage.value = 'No response from server. Please check your network connection.';
-            } else {
-                // Something happened in setting up the request that triggered an Error
-                errorMessage.value = `Request error: ${error.message}`;
-            }
-            
-            // Make sure the Banner component will be visible
-            routerForm.errors = routerForm.errors || {};
-            
-            // Scroll to the top to make error visible
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
+        
+        // Show success message
+        successMessage.value = response.data.message || 'Router added successfully!';
+        
+        // Update step notification
+        stepNotifications.value.basic.type = 'success';
+        stepNotifications.value.basic.title = 'Success';
+        stepNotifications.value.basic.message = 'Router added successfully! Proceeding to interface configuration...';
+        
+        // Save configuration to local storage
+        await saveCurrentStepConfiguration();
+        
+        // Fetch router interfaces
+        await fetchRouterInterfaces();
+        
+        // Go to the next step
+        nextStep();
+        
+    } catch (error) {
+        console.error(`Router submission [${debugId}]: Error:`, error);
+        errorMessage.value = error.response?.data?.message || 'Error adding router: ' + error.message;
+        
+        // Update step notification
+        stepNotifications.value.basic.type = 'error';
+        stepNotifications.value.basic.title = 'Error';
+        stepNotifications.value.basic.message = errorMessage.value;
+    } finally {
+        isLoading.value = false;
+    }
 };
 
 // Fetch router interfaces
@@ -664,214 +645,147 @@ const fetchRouterInterfaces = async () => {
 
 // Configure IP addresses for WAN and LAN interfaces
 const configureIpAddresses = async () => {
-    console.log('Configuring IP addresses...');
-    
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
     try {
-        // Configure WAN IP address if static IP is selected
-        if (!ipAddressConfig.useWanDhcp && ipAddressConfig.wanIpAddress && ipAddressConfig.wanNetmask) {
-            console.log(`Setting WAN IP address: ${ipAddressConfig.wanIpAddress}/${ipAddressConfig.wanNetmask}`);
-            
-            // In a real implementation, this would make an API call to set the WAN IP address
-            // await axios.post(route('routers.ip-addresses.add', { id: routerId.value }), {
-            //     interface: interfaceConfig.wanInterface.name,
-            //     address: `${ipAddressConfig.wanIpAddress}/${ipAddressConfig.wanNetmask}`,
-            //     network: calculateNetwork(ipAddressConfig.wanIpAddress, ipAddressConfig.wanNetmask),
-            //     comment: 'WAN IP address'
-            // });
-        }
-        
-        // Configure LAN IP address
-        if (ipAddressConfig.lanIpAddress && ipAddressConfig.lanNetmask) {
-            console.log(`Setting LAN IP address: ${ipAddressConfig.lanIpAddress}/${ipAddressConfig.lanNetmask}`);
-            
-            // In a real implementation, this would make an API call to set the LAN IP address
-            // await axios.post(route('routers.ip-addresses.add', { id: routerId.value }), {
-            //     interface: interfaceConfig.lanInterface.name,
-            //     address: `${ipAddressConfig.lanIpAddress}/${ipAddressConfig.lanNetmask}`,
-            //     network: calculateNetwork(ipAddressConfig.lanIpAddress, ipAddressConfig.lanNetmask),
-            //     comment: 'LAN IP address'
-            // });
-        }
-        
-        console.log('IP addresses configured successfully');
+        // Make API call to configure IP addresses
+        const response = await axios.post(route('router.configure.ip', routerId.value), {
+            wan_ip: ipAddressConfig.wanIpAddress,
+            wan_netmask: ipAddressConfig.wanNetmask,
+            wan_gateway: ipAddressConfig.wanGateway,
+            lan_ip: ipAddressConfig.lanIpAddress,
+            lan_netmask: ipAddressConfig.lanNetmask
+        });
+
+        return response.data;
     } catch (error) {
-        console.error('Failed to configure IP addresses:', error);
-        throw new Error(`Failed to configure IP addresses: ${error.message}`);
+        console.error('Error configuring IP addresses:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure IP addresses');
     }
 };
 
 // Configure DHCP client for WAN interface
 const configureDhcpClient = async () => {
-    console.log('Configuring DHCP client...');
-    
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
     try {
-        if (ipAddressConfig.useWanDhcp && interfaceConfig.wanInterface) {
-            console.log(`Setting up DHCP client on ${interfaceConfig.wanInterface.name}`);
-            
-            // In a real implementation, this would make an API call to set up the DHCP client
-            // await axios.post(route('routers.dhcp-client.add', { id: routerId.value }), {
-            //     interface: interfaceConfig.wanInterface.name,
-            //     disabled: false,
-            //     comment: 'WAN DHCP client'
-            // });
-        }
-        
-        console.log('DHCP client configured successfully');
+        // Make API call to configure DHCP client
+        const response = await axios.post(route('router.configure.dhcp-client', routerId.value), {
+            interface: dhcpClientConfig.interface,
+            enabled: dhcpClientConfig.enabled
+        });
+
+        return response.data;
     } catch (error) {
-        console.error('Failed to configure DHCP client:', error);
-        throw new Error(`Failed to configure DHCP client: ${error.message}`);
+        console.error('Error configuring DHCP client:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure DHCP client');
     }
 };
 
 // Configure DHCP server for LAN interface
 const configureDhcpServer = async () => {
-    console.log('Configuring DHCP server...');
-    
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
     try {
-        if (dhcpServerConfig.enabled && interfaceConfig.lanInterface) {
-            console.log(`Setting up DHCP server on ${interfaceConfig.lanInterface.name}`);
-            
-            // In a real implementation, this would make API calls to set up the DHCP server
-            // 1. Create DHCP server
-            // await axios.post(route('routers.dhcp-server.add', { id: routerId.value }), {
-            //     interface: interfaceConfig.lanInterface.name,
-            //     address_pool: dhcpServerConfig.addressPool,
-            //     disabled: false,
-            //     comment: 'LAN DHCP server'
-            // });
-            
-            // 2. Configure DHCP server network
-            // await axios.post(route('routers.dhcp-server.network.add', { id: routerId.value }), {
-            //     address: calculateNetwork(ipAddressConfig.lanIpAddress, ipAddressConfig.lanNetmask),
-            //     gateway: ipAddressConfig.lanIpAddress,
-            //     dns_server: dnsConfig.primaryDns
-            // });
-        }
-        
-        console.log('DHCP server configured successfully');
+        // Make API call to configure DHCP server
+        const response = await axios.post(route('router.configure.dhcp-server', routerId.value), {
+            interface: dhcpServerConfig.interface,
+            address_pool: dhcpServerConfig.addressPool,
+            lease_time: dhcpServerConfig.leaseTime,
+            enabled: dhcpServerConfig.enabled
+        });
+
+        return response.data;
     } catch (error) {
-        console.error('Failed to configure DHCP server:', error);
-        throw new Error(`Failed to configure DHCP server: ${error.message}`);
+        console.error('Error configuring DHCP server:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure DHCP server');
     }
 };
 
 // Configure DNS settings
 const configureDns = async () => {
-    console.log('Configuring DNS settings...');
-    
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
     try {
-        if (dnsConfig.primaryDns) {
-            console.log(`Setting DNS servers: ${dnsConfig.primaryDns}, ${dnsConfig.secondaryDns || ''}`);
-            
-            // In a real implementation, this would make an API call to set the DNS servers
-            // await axios.post(route('routers.dns.set', { id: routerId.value }), {
-            //     servers: [dnsConfig.primaryDns, dnsConfig.secondaryDns].filter(Boolean).join(',')
-            // });
-        }
-        
-        console.log('DNS settings configured successfully');
+        // Make API call to configure DNS
+        const response = await axios.post(route('router.configure.dns', routerId.value), {
+            servers: dnsConfig.servers,
+            allow_remote_requests: dnsConfig.allowRemoteRequests
+        });
+
+        return response.data;
     } catch (error) {
-        console.error('Failed to configure DNS settings:', error);
-        throw new Error(`Failed to configure DNS settings: ${error.message}`);
+        console.error('Error configuring DNS:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure DNS');
     }
 };
 
 // Configure address pool for DHCP server
 const configureAddressPool = async () => {
-    console.log('Configuring address pool...');
-    
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
     try {
-        if (poolConfig.name && poolConfig.ranges) {
-            console.log(`Creating address pool: ${poolConfig.name}`);
-            
-            // Make an API call to create the address pool
-            await axios.post(`/routers/${routerId.value}/pool/add`, {
-                name: poolConfig.name,
-                ranges: poolConfig.ranges
-            });
-        }
-        
-        console.log('Address pool configured successfully');
+        // Make API call to configure address pool
+        const response = await axios.post(route('router.configure.pool', routerId.value), {
+            name: poolConfig.name,
+            ranges: poolConfig.ranges
+        });
+
+        return response.data;
     } catch (error) {
-        console.error('Failed to configure address pool:', error);
-        throw new Error(`Failed to configure address pool: ${error.message}`);
+        console.error('Error configuring address pool:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure address pool');
     }
 };
 
 // Configure basic firewall rules
 const configureFirewall = async () => {
-    console.log('Configuring firewall rules...');
-    
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
     try {
-        if (firewallConfig.enableBasicProtection) {
-            console.log('Setting up basic firewall protection');
-            
-            // In a real implementation, this would make API calls to set up basic firewall rules
-            // 1. Allow established/related connections
-            // await axios.post(route('routers.firewall.filter.add', { id: routerId.value }), {
-            //     chain: 'forward',
-            //     connection_state: 'established,related',
-            //     action: 'accept',
-            //     comment: 'Allow established and related connections'
-            // });
-            
-            // 2. Drop invalid connections
-            // await axios.post(route('routers.firewall.filter.add', { id: routerId.value }), {
-            //     chain: 'forward',
-            //     connection_state: 'invalid',
-            //     action: 'drop',
-            //     comment: 'Drop invalid connections'
-            // });
-            
-            // 3. Allow LAN to WAN
-            // await axios.post(route('routers.firewall.filter.add', { id: routerId.value }), {
-            //     chain: 'forward',
-            //     src_address: calculateNetwork(ipAddressConfig.lanIpAddress, ipAddressConfig.lanNetmask),
-            //     out_interface: interfaceConfig.wanInterface.name,
-            //     action: 'accept',
-            //     comment: 'Allow LAN to WAN'
-            // });
-            
-            // 4. Enable NAT for LAN
-            // await axios.post(route('routers.firewall.nat.add', { id: routerId.value }), {
-            //     chain: 'srcnat',
-            //     src_address: calculateNetwork(ipAddressConfig.lanIpAddress, ipAddressConfig.lanNetmask),
-            //     out_interface: interfaceConfig.wanInterface.name,
-            //     action: 'masquerade',
-            //     comment: 'NAT for LAN'
-            // });
-        }
-        
-        console.log('Firewall rules configured successfully');
+        // Make API call to configure firewall
+        const response = await axios.post(route('router.configure.firewall', routerId.value), {
+            rules: firewallConfig.rules
+        });
+
+        return response.data;
     } catch (error) {
-        console.error('Failed to configure firewall rules:', error);
-        throw new Error(`Failed to configure firewall rules: ${error.message}`);
+        console.error('Error configuring firewall:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure firewall');
     }
 };
 
 // Configure hotspot
 const configureHotspot = async () => {
-    console.log('Configuring hotspot...');
-    
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
     try {
-        if (hotspotConfig.enabled && interfaceConfig.lanInterface) {
-            console.log(`Setting up hotspot on ${interfaceConfig.lanInterface.name}`);
-            
-            // In a real implementation, this would make an API call to set up the hotspot
-            // await axios.post(route('routers.hotspot.setup', { id: routerId.value }), {
-            //     interface: interfaceConfig.lanInterface.name,
-            //     address_pool: hotspotConfig.addressPool,
-            //     profile: hotspotConfig.profile,
-            //     dns_name: hotspotConfig.dnsName,
-            //     html_directory: hotspotConfig.htmlDirectory,
-            //     login_by: hotspotConfig.loginBy
-            // });
-        }
-        
-        console.log('Hotspot configured successfully');
+        // Make API call to configure hotspot
+        const response = await axios.post(route('router.configure.hotspot', routerId.value), {
+            interface: hotspotConfig.interface,
+            address_pool: hotspotConfig.addressPool,
+            profile: hotspotConfig.profile,
+            login_by: hotspotConfig.loginBy
+        });
+
+        return response.data;
     } catch (error) {
-        console.error('Failed to configure hotspot:', error);
-        throw new Error(`Failed to configure hotspot: ${error.message}`);
+        console.error('Error configuring hotspot:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure hotspot');
     }
 };
 
@@ -922,67 +836,32 @@ const configureRouter = async () => {
 
 // Helper methods for each configuration step
 const configureInterfaces = async () => {
-    console.log('Configuring interfaces...');
-    
-    // If we need to create a bridge for LAN and it hasn't been created yet
-    if (interfaceConfig.createBridgeForLan && interfaceConfig.bridgePorts.length > 0 && !interfaceConfig.bridgeCreated) {
-        console.log('Creating bridge interface for LAN with ports:', interfaceConfig.bridgePorts);
-        
-        try {
-            // In a real implementation, this would make an API call to create the bridge
-            // For now, we'll just simulate it
-            
-            // 1. Create the bridge interface
-            // const bridgeResponse = await axios.post(route('routers.interfaces.create', { id: routerId.value }), {
-            //     type: 'bridge',
-            //     name: interfaceConfig.lanInterfaceName,
-            //     enabled: true,
-            //     comment: 'LAN Bridge created by router configuration wizard'
-            // });
-            
-            // 2. Add ports to the bridge
-            // for (const port of interfaceConfig.bridgePorts) {
-            //     await axios.post(route('routers.bridge-ports.add', { id: routerId.value }), {
-            //         bridge: interfaceConfig.lanInterfaceName,
-            //         interface: port.name
-            //     });
-            // }
-            
-            // 3. Update lanInterface to use the new bridge
-            // interfaceConfig.lanInterface = {
-            //     id: bridgeResponse.data.id,
-            //     name: interfaceConfig.lanInterfaceName,
-            //     type: 'bridge',
-            //     running: true,
-            //     disabled: false
-            // };
-            
-            // Mark bridge as created so we don't try to create it again
+    if (!routerId.value) {
+        throw new Error('Router ID is required');
+    }
+
+    try {
+        // Make API call to configure interfaces
+        const response = await axios.post(route('router.configure.interfaces', routerId.value), {
+            wan_interface: interfaceConfig.wanInterface?.name,
+            lan_interface: interfaceConfig.lanInterface?.name,
+            create_bridge: interfaceConfig.createBridgeForLan,
+            bridge_name: interfaceConfig.initialBridgeName
+        });
+
+        // Update local state based on response
+        if (response.data.bridge_created) {
             interfaceConfig.bridgeCreated = true;
-            
-            console.log(`Bridge ${interfaceConfig.lanInterfaceName} created successfully`);
-        } catch (error) {
-            console.error('Failed to create bridge:', error);
-            throw new Error(`Failed to create bridge: ${error.message}`);
         }
+
+        // Update interface list
+        await fetchRouterInterfaces();
+
+        return response.data;
+    } catch (error) {
+        console.error('Error configuring interfaces:', error);
+        throw new Error(error.response?.data?.message || 'Failed to configure interfaces');
     }
-    
-    // Rename WAN interface if needed
-    if (interfaceConfig.wanInterface && interfaceConfig.wanInterfaceName && 
-        interfaceConfig.wanInterfaceName !== interfaceConfig.wanInterface.name) {
-        console.log(`Renaming WAN interface from ${interfaceConfig.wanInterface.name} to ${interfaceConfig.wanInterfaceName}`);
-        
-        // In a real implementation, this would make an API call to rename the interface
-        // await axios.post(route('routers.interfaces.rename', { id: routerId.value }), {
-        //     interface: interfaceConfig.wanInterface.name,
-        //     newName: interfaceConfig.wanInterfaceName
-        // });
-        
-        // Update the interface name in our local state
-        // interfaceConfig.wanInterface.name = interfaceConfig.wanInterfaceName;
-    }
-    
-    return Promise.resolve();
 };
 
 // Note: The detailed configureDhcpClient and configureDhcpServer functions are defined below
@@ -993,65 +872,108 @@ const configureInterfaces = async () => {
 
 // Navigation methods
 const nextStep = () => {
-    if (currentStep.value < steps.length - 1) {
-        currentStep.value++;
+    if (currentStepIndex.value < steps.length - 1) {
+        // Only check for form errors on the first step (basic router details)
+        if (currentStepIndex.value === 0) {
+            const currentStepData = routerForm;
+            const hasErrors = Object.keys(currentStepData).some(key => {
+                const value = currentStepData[key];
+                return value === null || value === undefined || value === '';
+            });
+            
+            if (hasErrors) {
+                const currentStepId = steps[currentStepIndex.value].id;
+                stepNotifications.value[currentStepId] = {
+                    type: 'warning',
+                    title: 'Incomplete Configuration',
+                    message: 'Please fill in all required fields before proceeding.'
+                };
+                return;
+            }
+        }
+        
+        // Save current step configuration before moving to next step
+        saveCurrentStepConfiguration().then(() => {
+            currentStepIndex.value++;
+            const nextStepId = steps[currentStepIndex.value].id;
+            if (stepNotifications.value[nextStepId]) {
+                stepNotifications.value[nextStepId].type = 'info';
+            }
+        }).catch(error => {
+            console.error('Error saving step configuration:', error);
+            errorMessage.value = 'Error saving configuration: ' + error.message;
+        });
     }
 };
 
-const prevStep = () => {
-    if (currentStep.value > 0) {
-        currentStep.value--;
+const previousStep = () => {
+    if (currentStepIndex.value > 0) {
+        currentStepIndex.value--;
+        stepNotifications.value[steps[currentStepIndex.value].id].type = 'info';
     }
 };
 
 const goToStep = (step) => {
     if (step >= 0 && step < steps.length) {
-        currentStep.value = step;
+        currentStepIndex.value = step;
     }
 };
 
 // Handle form submission based on current step
-const handleStepSubmit = () => {
-    // Get the current step as a number
-    const stepNumber = typeof currentStep === 'object' ? currentStep.value : currentStep;
-    console.log('Current step in handleStepSubmit:', stepNumber, typeof stepNumber);
-    
-    if (stepNumber === 0) {
-        // Submit router creation form
-        submitRouterForm();
-    } else if (stepNumber === 1) {
-        // Create bridge if needed before proceeding to the next step
-        if (interfaceConfig.createBridgeForLan && !interfaceConfig.bridgeCreated) {
-            isLoading.value = true;
-            configureInterfaces()
-                .then(() => {
-                    isLoading.value = false;
-                    saveConfigToLocalStorage(); // Save progress to local storage
-                    nextStep();
-                })
-                .catch(error => {
-                    console.error('Failed to configure interfaces:', error);
-                    errorMessage.value = `Failed to configure interfaces: ${error.message}`;
-                    isLoading.value = false;
-                });
-        } else {
-            saveConfigToLocalStorage(); // Save progress to local storage
-            nextStep();
+const handleStepSubmit = async () => {
+    const stepNumber = currentStepIndex.value;
+    isLoading.value = true;
+    errorMessage.value = '';
+    successMessage.value = '';
+
+    try {
+        switch (stepNumber) {
+            case 0: // Basic router details
+                await submitRouterForm();
+                break;
+            case 1: // Interfaces
+                await configureInterfaces();
+                break;
+            case 2: // IP Addresses
+                await configureIpAddresses();
+                break;
+            case 3: // DNS
+                await configureDns();
+                break;
+            case 4: // Address Pool
+                await configureAddressPool();
+                break;
+            case 5: // DHCP Client
+                await configureDhcpClient();
+                break;
+            case 6: // DHCP Server
+                await configureDhcpServer();
+                break;
+            case 7: // Firewall
+                await configureFirewall();
+                break;
+            case 8: // Hotspot
+                await configureHotspot();
+                break;
         }
-    } else if (stepNumber === 9) {
-        // Final step - apply configuration
-        configureRouter();
-    } else {
-        // For other steps, save current configuration before going to next step
-        saveCurrentStepConfiguration()
-            .then(() => {
-                saveConfigToLocalStorage(); // Save progress to local storage
-                nextStep();
-            })
-            .catch(error => {
-                console.error('Failed to save configuration:', error);
-                errorMessage.value = `Failed to save configuration: ${error.message}`;
-            });
+
+        // Show success message
+        successMessage.value = `${steps[stepNumber].title} configured successfully!`;
+        
+        // Move to next step
+        if (stepNumber < steps.length - 1) {
+            nextStep();
+        } else {
+            // If this was the last step, show completion message
+            configSuccess.value = true;
+            // Clear local storage after successful configuration
+            localStorage.removeItem('router_config');
+        }
+    } catch (error) {
+        console.error(`Error in step ${stepNumber}:`, error);
+        errorMessage.value = `Failed to configure ${steps[stepNumber].title.toLowerCase()}: ${error.message}`;
+    } finally {
+        isLoading.value = false;
     }
 };
 
@@ -1064,7 +986,7 @@ const saveCurrentStepConfiguration = async () => {
     }
     
     // Get the current step as a number
-    const stepNumber = typeof currentStep === 'object' ? currentStep.value : currentStep;
+    const stepNumber = currentStepIndex.value;
     console.log('Current step type in saveCurrentStepConfiguration:', typeof stepNumber, stepNumber);
     
     // Get the step title safely
@@ -1144,6 +1066,42 @@ const finishSetup = () => {
         preserveScroll: true,
     });
 };
+
+const submitForm = async () => {
+    try {
+        form.processing = true;
+        
+        // Show progress notification
+        stepNotifications.value.basic.type = 'info';
+        stepNotifications.value.basic.title = 'Configuration in Progress';
+        stepNotifications.value.basic.message = 'Please wait while we configure your router...';
+        
+        const response = await axios.post(route('router.store'), form);
+        
+        // Show success notification
+        stepNotifications.value.basic.type = 'success';
+        stepNotifications.value.basic.title = 'Configuration Complete';
+        stepNotifications.value.basic.message = 'Your router has been successfully configured!';
+        
+        // Clear saved configuration
+        localStorage.removeItem('routerConfig');
+        
+        // Redirect to router list
+        window.location.href = route('router.index');
+    } catch (error) {
+        // Show error notification
+        stepNotifications.value.basic.type = 'danger';
+        stepNotifications.value.basic.title = 'Configuration Failed';
+        stepNotifications.value.basic.message = error.response?.data?.message || 'An error occurred while configuring your router. Please try again.';
+        
+        // Log the error
+        console.error('Router configuration error:', error);
+    } finally {
+        form.processing = false;
+    }
+};
+
+// ... existing code ...
 </script>
 
 <template>
@@ -1153,7 +1111,7 @@ const finishSetup = () => {
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ currentStep === 0 ? 'Add New Router' : `Configure Router: ${steps[currentStep].title}` }}
+                    {{ currentStepIndex === 0 ? 'Add New Router' : `Configure Router: ${steps[currentStepIndex].title}` }}
                 </h2>
                 <Link
                     :href="route('routers.index')"
@@ -1166,66 +1124,48 @@ const finishSetup = () => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                <!-- Display error banner if there are any errors -->
-                <Banner
-                    v-if="(Object.keys(routerForm.errors || {}).length > 0 || errorMessage) && !configSuccess"
-                    type="danger"
-                    class="mb-4"
-                >
-                    <template #title>{{ Object.keys(routerForm.errors || {}).length > 0 ? 'Validation Error' : 'Connection Error' }}</template>
-                    <template #content>
-                        <div class="space-y-2">
-                            <p class="text-sm font-medium">Please fix the following errors:</p>
-                            <ul class="list-disc list-inside text-sm">
-                                <li v-if="errorMessage" class="text-red-600 font-medium">
-                                    {{ errorMessage }}
-                                </li>
-                                <li v-for="(error, field) in routerForm.errors" :key="field" class="text-red-600">
-                                    <span class="font-medium">{{ field }}:</span> {{ error }}
-                                </li>
-                            </ul>
-                            <p v-if="errorMessage && errorMessage.includes('Failed to connect')" class="text-sm mt-2 p-3 bg-red-50 dark:bg-red-900 rounded border border-red-200 dark:border-red-800">
-                                <strong class="block mb-1 text-red-700 dark:text-red-300">Troubleshooting tips:</strong>
-                                <ul class="list-disc list-inside mt-1 space-y-1">
-                                    <li>Verify the router IP address is correct</li>
-                                    <li>Check that the username and password are valid</li>
-                                    <li>Ensure the API service is enabled on your MikroTik router</li>
-                                    <li>Confirm the port number is correct (default is 8728 for API)</li>
-                                </ul>
-                            </p>
-                        </div>
-                    </template>
-                </Banner>
-                
-                <!-- Display success banner when router is created successfully -->
-                <Banner
-                    v-if="successMessage && currentStep > 0"
-                    type="success"
-                    class="mb-4"
-                >
-                    <template #title>Router Created Successfully</template>
-                    <template #content>
-                        <div class="space-y-2">
-                            <p>{{ successMessage }}</p>
-                            <p class="text-sm text-green-700 dark:text-green-300">Continue with the configuration steps to set up your router.</p>
-                        </div>
-                    </template>
-                </Banner>
-                
-                <!-- Success banner -->
+                <!-- Notifications -->
+                <div v-if="successMessage || errorMessage" class="mb-4">
+                    <Banner :type="errorMessage ? 'error' : 'success'">
+                        <template #title>{{ errorMessage ? 'Error' : 'Success' }}</template>
+                        <template #content>
+                            {{ errorMessage || successMessage }}
+                        </template>
+                    </Banner>
+                </div>
+
+                <!-- Step Notifications -->
+                <div v-if="stepNotifications[steps[currentStepIndex].id]" class="mb-4">
+                    <Banner :type="stepNotifications[steps[currentStepIndex].id].type">
+                        <template #title>{{ stepNotifications[steps[currentStepIndex].id].title }}</template>
+                        <template #content>
+                            {{ stepNotifications[steps[currentStepIndex].id].message }}
+                        </template>
+                    </Banner>
+                </div>
+
+                <!-- Configuration Complete Banner -->
                 <Banner
                     v-if="configSuccess"
                     type="success"
                     class="mb-4"
                 >
-                    <template #title>Router Configuration Complete</template>
+                    <template #title>Configuration Complete</template>
                     <template #content>
                         <p>Your router has been successfully configured with all the requested settings.</p>
+                        <div class="mt-4">
+                            <Link
+                                :href="route('routers.index')"
+                                class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:bg-green-700 active:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                            >
+                                Return to Routers
+                            </Link>
+                        </div>
                     </template>
                 </Banner>
-                
+
                 <!-- Stepper component -->
-                <StepperComponent :steps="steps" :current-step="currentStep" class="mb-6" />
+                <StepperComponent :steps="steps" :current-step="currentStepIndex" class="mb-6" />
 
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
@@ -1238,7 +1178,7 @@ const finishSetup = () => {
                         <!-- Multi-step form container -->
                         <div v-else>
                             <!-- Step 1: Add Router (Basic Details) -->
-                            <div v-if="currentStep === 0" class="space-y-6">
+                            <div v-if="currentStepIndex === 0" class="space-y-6">
                                 <form @submit.prevent="handleStepSubmit" class="space-y-6">
                                     <div>
                                         <InputLabel for="name" value="Router Name" />
@@ -1369,7 +1309,7 @@ const finishSetup = () => {
                             </div>
 
                             <!-- Step 2: Configure Interfaces -->
-                            <div v-if="currentStep === 1" class="space-y-6">
+                            <div v-if="currentStepIndex === 1" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">Interface Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -1443,7 +1383,7 @@ const finishSetup = () => {
                                     </div>
                                     
                                     <div class="flex justify-between mt-6">
-                                        <SecondaryButton @click="prevStep">
+                                        <SecondaryButton @click="previousStep">
                                             <span>Back</span>
                                         </SecondaryButton>
                                         <PrimaryButton @click="skipBridgeCreation">
@@ -1577,7 +1517,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep" :disabled="!interfaceConfig.wanInterface || !interfaceConfig.lanInterface">
@@ -1587,7 +1527,7 @@ const finishSetup = () => {
                             </div>
                             
                             <!-- Step 3: Assign IP Address -->
-                            <div v-if="currentStep === 2" class="space-y-6">
+                            <div v-if="currentStepIndex === 2" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">IP Address Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -1633,7 +1573,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep" :disabled="!ipAddressConfig.address || !ipAddressConfig.network">
@@ -1643,7 +1583,7 @@ const finishSetup = () => {
                             </div>
                             
                             <!-- Step 4: DNS Settings -->
-                            <div v-if="currentStep === 3" class="space-y-6">
+                            <div v-if="currentStepIndex === 3" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">DNS Settings</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -1682,7 +1622,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep">
@@ -1692,7 +1632,7 @@ const finishSetup = () => {
                             </div>
                             
                             <!-- Step 5: Address Pool Configuration -->
-                            <div v-if="currentStep === 4" class="space-y-6">
+                            <div v-if="currentStepIndex === 4" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">Address Pool Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -1728,7 +1668,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep">
@@ -1738,7 +1678,7 @@ const finishSetup = () => {
                             </div>
                             
                             <!-- Step 6: DHCP Client Configuration -->
-                            <div v-if="currentStep === 5" class="space-y-6">
+                            <div v-if="currentStepIndex === 5" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">DHCP Client Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -1769,7 +1709,7 @@ const finishSetup = () => {
                                 </p>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep">
@@ -1778,7 +1718,7 @@ const finishSetup = () => {
                                 </div>
                             </div>
                             <!-- Step 7: DHCP Server Configuration -->
-                            <div v-if="currentStep === 6" class="space-y-6">
+                            <div v-if="currentStepIndex === 6" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">DHCP Server Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -1854,7 +1794,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep">
@@ -1864,7 +1804,7 @@ const finishSetup = () => {
                             </div>
                             
                             <!-- Step 8: Firewall Rules -->
-                            <div v-if="currentStep === 7" class="space-y-6">
+                            <div v-if="currentStepIndex === 7" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">Firewall Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -2054,7 +1994,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep">
@@ -2064,7 +2004,7 @@ const finishSetup = () => {
                             </div>
                             
                             <!-- Step 9: Hotspot -->
-                            <div v-if="currentStep === 8" class="space-y-6">
+                            <div v-if="currentStepIndex === 8" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">Hotspot Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -2130,7 +2070,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="nextStep">
@@ -2140,7 +2080,7 @@ const finishSetup = () => {
                             </div>
                             
                             <!-- Step 10: Review and Confirm -->
-                            <div v-if="currentStep === 9" class="space-y-6">
+                            <div v-if="currentStepIndex === 9" class="space-y-6">
                                 <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-6">
                                     <h3 class="text-lg font-medium text-blue-800 dark:text-blue-200">Review Configuration</h3>
                                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
@@ -2198,7 +2138,7 @@ const finishSetup = () => {
                                 </div>
                                 
                                 <div class="flex justify-between">
-                                    <SecondaryButton @click="prevStep">
+                                    <SecondaryButton @click="previousStep">
                                         <span>Back</span>
                                     </SecondaryButton>
                                     <PrimaryButton @click="handleStepSubmit" :disabled="!reviewConfig.applyChanges" :class="{ 'opacity-25': isLoading }" >

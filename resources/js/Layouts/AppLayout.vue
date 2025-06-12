@@ -29,7 +29,8 @@ import {
     faTrash,
     faFile,
     faFilePdf,
-    faFilter
+    faFilter,
+    faMoneyBillWave
 } from '@fortawesome/free-solid-svg-icons';
 
 // Add icons to the library
@@ -51,7 +52,8 @@ library.add(
     faTrash,
     faFile,
     faFilePdf,
-    faFilter
+    faFilter,
+    faMoneyBillWave
 );
 
 defineProps({
@@ -167,6 +169,19 @@ const logout = () => {
                         :class="route().current('vouchers.*') ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'"
                     />
                     Vouchers
+                </Link>
+                
+                <Link 
+                    :href="route('payments.index')" 
+                    class="mt-1 group flex items-center px-4 py-3 text-base font-medium rounded-md transition-colors"
+                    :class="route().current('payments.*') ? 'bg-gray-100 dark:bg-gray-700 text-indigo-600 dark:text-indigo-400' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                >
+                    <font-awesome-icon 
+                        icon="fa-money-bill-wave" 
+                        class="mr-3 h-5 w-5 flex-shrink-0"
+                        :class="route().current('payments.*') ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300'"
+                    />
+                    Payments
                 </Link>
                 
                 <Link 
@@ -316,6 +331,10 @@ const logout = () => {
                             <ResponsiveNavLink :href="route('vouchers.index')" :active="route().current('vouchers.*')" class="flex items-center">
                                 <font-awesome-icon icon="fa-ticket-alt" class="mr-3 h-5 w-5" />
                                 Vouchers
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('payments.index')" :active="route().current('payments.*')" class="flex items-center">
+                                <font-awesome-icon icon="fa-money-bill-wave" class="mr-3 h-5 w-5" />
+                                Payments
                             </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('tickets.index')" :active="route().current('tickets.*')" class="flex items-center">
                                 <font-awesome-icon icon="fa-life-ring" class="mr-3 h-5 w-5" />
